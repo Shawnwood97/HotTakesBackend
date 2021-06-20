@@ -61,3 +61,11 @@ def exc_handler(query):
     return Response("Error: Possible duplicate data or foreign key conflict!", mimetype="text/plain", status=int(query))
   else:
     return Response("Internal Server Error, Please try again later!", mimetype="text/plain", status=500)
+
+
+def update_handler(col, rows, params):
+  sql = "UPDATE " + str(col) + " SET"
+  for row, param in rows, params:
+    if(row != None and row != ''):
+      sql += str(param) + "= ?,"
+  return sql

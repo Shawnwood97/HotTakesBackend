@@ -24,13 +24,17 @@ def call_list_users():
 # * --------------------------------------------------------
 
 @app.post('/api/users')
-def call_create_users():
+def call_create_user():
   return users.create_user()
 
 # ? --------------------------------------------------------
 # ? -------------------- PATCH REQUESTS --------------------
 # ? --------------------------------------------------------
 
+
+@app.patch('/api/users')
+def call_update_user():
+  return users.update_user()
 
 # ! --------------------------------------------------------
 # ! -------------------- DELETE REQUESTS -------------------
