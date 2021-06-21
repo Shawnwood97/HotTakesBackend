@@ -52,6 +52,11 @@ def call_delete_user():
   return users.delete_user()
 
 
+@app.delete('/api/login')
+def call_logout_user():
+  return login.logout_user()
+
+
 if(len(sys.argv) > 1):
   mode = sys.argv[1]
 else:

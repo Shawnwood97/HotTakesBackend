@@ -16,7 +16,7 @@ from flask import Flask, request, Response
 
 def run_query(sql, params=[]):
   # This function will run all of the queries, keeping it DRY, params starts as an empty list because we don't always need them.
-  data = None  # Where data that we want to loop through before returning will be stored
+  # data = None  # Where data that we want to loop through before returning will be stored
   # Where data that we want to return will be stored, post loop or no loop required.
   result = None
   conn = dbconn.open_connection()

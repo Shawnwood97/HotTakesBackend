@@ -34,20 +34,23 @@ def list_users():
     return dbh.exc_handler(users)
 
 #! changed this to be more resemble Alex' API now, to make it more plug n play with my tweeter project
-  usersList = []
+  # List defined to append each user into
+  users_list = []
+  # loop through all users returned by users
   for user in users:
-    user_info = {
-        'userId': user[0],
-        'email': user[3],
-        'username': user[1],
-        'bio': user[7],
-        'birthdate': user[4],
-        'imageUrl': user[12],
-        'bannerUrl': user[13]
-    }
-    usersList.append(user_info)
-  users_json = json.dumps(usersList, default=str)
-  return Response(users_json, mimetype='application/json', status=200)
+    user_info_json = json.dumps(
+        {
+            'userId': user[0],
+            'email': user[3],
+            'username': user[1],
+            'bio': user[7],
+            'birthdate': user[4],
+            'imageUrl': user[12],
+            'bannerUrl': user[13]
+        }, default=str)
+    users_list.append(user_info_json)
+  # users_json = json.dumps(usersList, default=str)
+  return Response(users_list, mimetype='application/json', status=200)
 
 
 def create_user():
