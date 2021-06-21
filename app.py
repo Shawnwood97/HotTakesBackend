@@ -41,6 +41,11 @@ def call_update_user():
 # ! --------------------------------------------------------
 
 
+@app.delete('/api/users')
+def call_delete_user():
+  return users.delete_user()
+
+
 if(len(sys.argv) > 1):
   mode = sys.argv[1]
 else:

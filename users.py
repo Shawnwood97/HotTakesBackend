@@ -122,6 +122,7 @@ def update_user():
   # Starting point for valid params
   params = []
 
+  # TODO I should be able to make a loop function for this.
   if(username != None and username != ''):
     sql += " u.username = ?,"
     params.append(username)
@@ -150,26 +151,60 @@ def update_user():
   if(type(update) is str):
     return dbh.exc_handler(update)
 
-  # if(update != 0):
+#! Do I need this if block, in what case would the rowcount be 0??? Been trying to make it happen and can't
+#! leaving it to be "defensive"
+  if(update != 0):
     # ? Maybe I should build this while I build the UPDATE statement?
-  updated_info = dbh.run_query(
-      "SELECT u.id, username, email, headline, birthdate, profile_pic_path, profile_banner_path FROM users u INNER JOIN `session` s ON u.id = s.user_id WHERE s.token = ?", [login_token, ])
+    updated_info = dbh.run_query(
+        "SELECT u.id, username, email, headline, birthdate, profile_pic_path, profile_banner_path FROM users u INNER JOIN `session` s ON u.id = s.user_id WHERE s.token = ?", [login_token, ])
 
-  # else:
-  #   traceback.print_exc()
-  #   return Response("Failed to update", mimetype="text/plain", status=400)
+  else:
+    traceback.print_exc()
+    return Response("Failed to update", mimetype="text/plain", status=400)
 
   if(type(updated_info) is str):
     return dbh.exc_handler(updated_info)
 
-  # if(updated_info != None):
-  updated_user_json = json.dumps(updated_info, default=str)
-  return Response(updated_user_json, mimetype="application/json", status=201)
-  # else:
-  #   traceback.print_exc()
-  #   return Response("Failed to update", mimetype="text/plain", status=400)
-
+#! also leaving this to be defensive!
+  if(updated_info != None):
+    updated_user_json = json.dumps(updated_info, default=str)
+    return Response(updated_user_json, mimetype="application/json", status=201)
+  else:
+    traceback.print_exc()
+    return Response("Failed to update", mimetype="text/plain", status=400)
 
 #! Would this work?!?!?!?!?
 # ? sql = dbh.update_handler('users', ['username', 'email', 'headline', 'birthdate', 'profile_image_url', 'profile_banner_url', 'token'], [
 # ?    username, email, bio, birthdate, image_url, banner_url])
+
+
+def delete_user():
+  # Get password and loginToken, both are required, nothing optional!
+  try:
+    password = request.json['password']
+    token = request.json['loginToken']
+
+  except ValueError:
+    traceback.print_exc()
+    return Response("Error: One or more of the inputs is invalid!", mimetype="text/plain", status=422)
+  except KeyError:
+    traceback.print_exc()
+    return Response("Error: One or more required fields are empty!", mimetype="text/plain", status=422)
+  except:
+    traceback.print_exc()
+    return Response("Error: Unknown error with an input!", mimetype="text/plain", status=400)
+
+  deleted_user = 0
+
+  # Inner join seemes apropriate here to validate info rather than using mutiple queries to compare.
+  deleted_user = dbh.run_query(
+      "DELETE u FROM users u INNER JOIN `session` s ON u.id = s.user_id WHERE u.password = ? AND s.token = ?", [password, token])
+
+  if(type(deleted_user) is str):
+    return dbh.exc_handler(deleted_user)
+
+  #! I used fstring here to display "1 user deleted" doesn't seem particularly useful, will probably change!
+  if(deleted_user == 1):
+    return Response(f"{deleted_user} User Deleted!", mimetype="text/plain", status=200)
+  else:
+    return Response("Failed to delete user", mimetype="text/plain", status=400)
