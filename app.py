@@ -5,6 +5,7 @@ import traceback
 import sys
 import mariadb
 import users
+import login
 
 app = Flask(__name__)
 
@@ -26,6 +27,11 @@ def call_list_users():
 @app.post('/api/users')
 def call_create_user():
   return users.create_user()
+
+
+@app.post('/api/login')
+def call_login_user():
+  return login.login_user()
 
 # ? --------------------------------------------------------
 # ? -------------------- PATCH REQUESTS --------------------

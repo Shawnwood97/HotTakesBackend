@@ -1,8 +1,7 @@
-from flask import Flask, request, Response
+from flask import request, Response
 import dbh
 import json
 import traceback
-import mariadb
 from datetime import datetime
 import secrets
 
@@ -34,7 +33,20 @@ def list_users():
   if(type(users) is str):
     return dbh.exc_handler(users)
 
-  users_json = json.dumps(users, default=str)
+#! changed this to be more resemble Alex' API now, to make it more plug n play with my tweeter project
+  usersList = []
+  for user in users:
+    user_info = {
+        'userId': user[0],
+        'email': user[3],
+        'username': user[1],
+        'bio': user[7],
+        'birthdate': user[4],
+        'imageUrl': user[12],
+        'bannerUrl': user[13]
+    }
+    usersList.append(user_info)
+  users_json = json.dumps(usersList, default=str)
   return Response(users_json, mimetype='application/json', status=200)
 
 
@@ -68,7 +80,7 @@ def create_user():
   if(type(new_id) is str):
     return dbh.exc_handler(new_id)
 
-  # If newly created row == -1, fail.
+  # If newly created row == None, fail.
   if(new_id != None):
     # using 45 bytes, as that is well above the suggested 32 from the docs that says in 2015 was sufficient.
     login_token = secrets.token_urlsafe(45)
@@ -157,7 +169,6 @@ def update_user():
     # ? Maybe I should build this while I build the UPDATE statement?
     updated_info = dbh.run_query(
         "SELECT u.id, username, email, headline, birthdate, profile_pic_path, profile_banner_path FROM users u INNER JOIN `session` s ON u.id = s.user_id WHERE s.token = ?", [login_token, ])
-
   else:
     traceback.print_exc()
     return Response("Failed to update", mimetype="text/plain", status=400)
@@ -167,8 +178,16 @@ def update_user():
 
 #! also leaving this to be defensive!
   if(updated_info != None):
-    updated_user_json = json.dumps(updated_info, default=str)
-    return Response(updated_user_json, mimetype="application/json", status=201)
+    updated_user = {
+        "userId": updated_info[0][0],
+        "email": updated_info[0][2],
+        "username": updated_info[0][1],
+        "bio": updated_info[0][3],
+        "birthdate": updated_info[0][4],
+        "imageUrl": updated_info[0][5],
+        "bannerUrl": updated_info[0][6]
+    }
+    return Response(json.dumps(updated_user, default=str), mimetype="application/json", status=201)
   else:
     traceback.print_exc()
     return Response("Failed to update", mimetype="text/plain", status=400)
