@@ -53,6 +53,7 @@ def call_new_follow():
 def call_update_user():
   return users.update_user()
 
+
 # ! --------------------------------------------------------
 # ! -------------------- DELETE REQUESTS -------------------
 # ! --------------------------------------------------------
@@ -66,6 +67,11 @@ def call_delete_user():
 @app.delete('/api/login')
 def call_logout_user():
   return login.logout_user()
+
+
+@app.delete('/api/follows')
+def call_remove_follow():
+  return follows.remove_follow()
 
 
 if(len(sys.argv) > 1):

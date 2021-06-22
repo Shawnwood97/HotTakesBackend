@@ -2,8 +2,6 @@ from flask import request, Response
 import dbh
 import json
 import traceback
-from datetime import datetime
-import secrets
 
 
 def new_follow():
@@ -79,3 +77,31 @@ def list_follows():
 
   users_json = json.dumps(users_list, default=str)
   return Response(users_json, mimetype='application/json', status=200)
+
+
+def remove_follow():
+  try:
+    login_token = request.json['loginToken']
+    follow_id = int(request.json['followId'])
+
+  except ValueError:
+    traceback.print_exc()
+    return Response("Error: One or more of the inputs is invalid!", mimetype="text/plain", status=422)
+  except KeyError:
+    traceback.print_exc()
+    return Response("Error: One or more required fields are empty!", mimetype="text/plain", status=422)
+  except:
+    traceback.print_exc()
+    return Response("Error: Unknown error with an input!", mimetype="text/plain", status=400)
+
+  # This var will hold 1 if the unfollow happened and 0 if it failed, should not be able to be anything else.
+  rem_follow_rel = dbh.run_query(
+      "DELETE f FROM follows f INNER JOIN `session` s ON s.user_id = f.follower_id WHERE f.followed_id = ? AND s.token = ?", [follow_id, login_token])
+
+  if(type(rem_follow_rel) is str):
+    return dbh.exc_handler(rem_follow_rel)
+
+  if(rem_follow_rel == 1):
+    return Response("Unfollow Success!", mimetype='text/plain', status=201)
+  else:
+    return Response("Error unfollowing user!", mimetype='text/plain', status=400)
