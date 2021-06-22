@@ -41,9 +41,9 @@ def new_follow():
 
 
 def list_follows():
-    # set user_id using args.get so it's not mandatory.
+    # set user_id using args because it is a get request
   try:
-    user_id = request.args['userId']
+    user_id = int(request.args['userId'])
   except ValueError:
     return Response("NaN", mimetype="text/plain", status=422)
   except KeyError:

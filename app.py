@@ -7,6 +7,7 @@ import mariadb
 import users
 import login
 import follows
+import followers
 
 app = Flask(__name__)
 
@@ -24,6 +25,11 @@ def call_list_users():
 @app.get('/api/follows')
 def call_list_follows():
   return follows.list_follows()
+
+
+@app.get('/api/followers')
+def call_list_followers():
+  return followers.list_followers()
 
 
 # * --------------------------------------------------------
