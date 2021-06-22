@@ -10,6 +10,7 @@ def list_users():
   # set user_id using args.get so it's not mandatory.
   try:
     #! USE .args FOR GET!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    # ? cant get this to work wrapped in int?!?!?!
     user_id = request.args.get('userId')
   except ValueError:
     return Response("NaN", mimetype="text/plain", status=422)
@@ -38,19 +39,19 @@ def list_users():
   users_list = []
   # loop through all users returned by users
   for user in users:
-    user_info_json = json.dumps(
-        {
-            'userId': user[0],
-            'email': user[3],
-            'username': user[1],
-            'bio': user[7],
-            'birthdate': user[4],
-            'imageUrl': user[12],
-            'bannerUrl': user[13]
-        }, default=str)
+    user_info_json = {
+        'userId': user[0],
+        'email': user[3],
+        'username': user[1],
+        'bio': user[7],
+        'birthdate': user[4],
+        'imageUrl': user[12],
+        'bannerUrl': user[13]
+    }
     users_list.append(user_info_json)
-  # users_json = json.dumps(usersList, default=str)
-  return Response(users_list, mimetype='application/json', status=200)
+  # took me a little while to realise I needed to dump here rather than wrapping the dict above in it to get it in a list.
+  users_json = json.dumps(users_list, default=str)
+  return Response(users_json, mimetype='application/json', status=200)
 
 
 def create_user():
@@ -181,16 +182,17 @@ def update_user():
 
 #! also leaving this to be defensive!
   if(updated_info != None):
-    updated_user = {
-        "userId": updated_info[0][0],
-        "email": updated_info[0][2],
-        "username": updated_info[0][1],
-        "bio": updated_info[0][3],
-        "birthdate": updated_info[0][4],
-        "imageUrl": updated_info[0][5],
-        "bannerUrl": updated_info[0][6]
-    }
-    return Response(json.dumps(updated_user, default=str), mimetype="application/json", status=201)
+    for col in updated_info:
+      updated_user = json.dumps({
+          "userId": col[0],
+          "email": col[2],
+          "username": col[1],
+          "bio": col[3],
+          "birthdate": col[4],
+          "imageUrl": col[5],
+          "bannerUrl": col[6]
+      }, default=str)
+    return Response(updated_user, mimetype="application/json", status=201)
   else:
     traceback.print_exc()
     return Response("Failed to update", mimetype="text/plain", status=400)
