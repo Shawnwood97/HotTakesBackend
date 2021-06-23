@@ -81,7 +81,7 @@ def call_list_followers():
 
 
 # * --------------------------------------------------------
-# * ------------------- /API/TWEETSS -----------------------
+# * ------------------- /API/TWEETS ------------------------
 # * --------------------------------------------------------
 
 @app.get('/api/tweets')
@@ -97,6 +97,11 @@ def call_create_tweet():
 @app.patch('/api/tweets')
 def call_update_tweet():
   return tweets.update_tweet()
+
+
+@app.delete('/api/tweets')
+def call_delete_tweet():
+  return tweets.delete_tweet()
 
 
 if(len(sys.argv) > 1):

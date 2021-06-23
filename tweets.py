@@ -172,29 +172,80 @@ def update_tweet():
   # update Query, includes setting the was_edited to 1(true) and edit_time to the current time(even though I probably won't use it until I rebuild!)
   sql = "UPDATE takes t INNER JOIN `session` s ON t.user_id = s.user_id SET t.content = ?, t.was_edited = 1, t.edit_time = NOW() WHERE s.token = ? AND t.id = ?"
 
-  # run the update, update variable will equal the rowcount that's returned, should be 3.... I t
+  # run the update, update variable will equal the rowcount. Should be 1 if successful!
   update = dbh.run_query(
       sql, [content, login_token[0]['token'], tweet_id[0]['id']])
 
-  print(update)
   if(type(update) is str):
     return dbh.exc_handler(update)
 
+  # only happens if update was successful.
   if(update != 0):
     updated_tweet_info = dbh.run_query(
         "SELECT t.id AS tweetId, u.id AS userId, u.username, u.profile_pic_path AS userImageUrl, t.content, t.image_path AS imageUrl, t.created_at AS createdAt FROM takes t INNER JOIN users u ON t.user_id = u.id WHERE t.id = ?", [tweet_id[0]['id'], ])
-
   else:
-    print(update)
+    #! this likely does not need to be here
     traceback.print_exc()
     return Response("Failed to update", mimetype="text/plain", status=400)
 
+  # extra error handling, maybe not needed, butttt
   if(type(updated_tweet_info) is str):
     return dbh.exc_handler(updated_tweet_info)
 
+  # even more error handling!
   if(len(updated_tweet_info) != 1):
     traceback.print_exc()
     return Response("Failed to update", mimetype="text/plain", status=400)
   else:
     updated_tweet_json = json.dumps(updated_tweet_info, default=str)
     return Response(updated_tweet_json, mimetype="application/json", status=201)
+
+
+def delete_tweet():
+  try:
+    login_token = request.json['loginToken']
+    tweet_id = int(request.json['tweetId'])
+
+  except ValueError:
+    traceback.print_exc()
+    return Response("Error: One or more of the inputs is invalid!", mimetype="text/plain", status=422)
+  except KeyError:
+    traceback.print_exc()
+    return Response("Error: One or more required fields are empty!", mimetype="text/plain", status=422)
+  except:
+    traceback.print_exc()
+    return Response("Error: Unknown error with an input!", mimetype="text/plain", status=400)
+
+  # error catching, this one seems to catch the login token being incorrect
+  # this also verifies that both exist by comparing user_id on the session token to user_id on the tweet_id and comparing with the given data!
+  if(tweet_id != None and tweet_id != ''):
+    try:
+      tweet_id = dbh.run_query(
+          "SELECT t.id FROM takes t INNER JOIN `session` s ON t.user_id = s.user_id WHERE t.id = ? AND s.token = ?", [tweet_id, login_token])
+    except IndexError:
+      traceback.print_exc()
+      return Response("Error: tweetId invalid or loginToken invalid, Please relog and try again", mimetype="text/plain", status=404)
+    except:
+      traceback.print_exc()
+      return Response("Error: Unknown Error With tweetId or loginToken, Please relog and try again", mimetype="text/plain", status=400)
+
+  # This var will hold 1 if the delete happened and 0 if it failed, should not be able to be anything else.
+  # error catch here seems to catch the tweetId being incorrect.
+  try:
+    deleted_tweet = dbh.run_query(
+        "DELETE t FROM takes t INNER JOIN `session` s ON s.user_id = t.user_id WHERE t.id = ? AND s.token = ?", [tweet_id[0]['id'], login_token])
+  except IndexError:
+    traceback.print_exc()
+    return Response("Error: tweetId invalid or loginToken invalid, Please relog and try again", mimetype="text/plain", status=404)
+  except:
+    traceback.print_exc()
+    return Response("Error: Unknown Error With tweetId or loginToken, Please relog and try again", mimetype="text/plain", status=400)
+
+  if(type(deleted_tweet) is str):
+    return dbh.exc_handler(deleted_tweet)
+
+  if(deleted_tweet == 1):
+    return Response("Tweet Deleted Successfully!", mimetype='text/plain', status=201)
+  else:
+    traceback.print_exc()
+    return Response("Error deletling tweet!", mimetype='text/plain', status=400)
