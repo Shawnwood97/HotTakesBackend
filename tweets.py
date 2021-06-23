@@ -113,9 +113,88 @@ def create_tweet():
 
   if(new_tweet_id != None):
     new_tweet_info = dbh.run_query(
-        "SELECT t.id, u.id, u.username, u.profile_pic_path AS userImageUrl, t.content, t.image_path AS imageUrl, t.created_at AS createdAt FROM takes t INNER JOIN users u ON t.user_id = u.id WHERE t.id = ?", [new_tweet_id, ])
+        "SELECT t.id AS tweetId, u.id AS userId, u.username, u.profile_pic_path AS userImageUrl, t.content, t.image_path AS imageUrl, t.created_at AS createdAt FROM takes t INNER JOIN users u ON t.user_id = u.id WHERE t.id = ?", [new_tweet_id, ])
 
     new_tweet_json = json.dumps(new_tweet_info, default=str)
     return Response(new_tweet_json, mimetype="application/json", status=201)
   else:
     return Response("Failed to create tweet", mimetype="text/plain", status=400)
+
+
+def update_tweet():
+  try:
+    # Get required inputs
+    login_token = request.json['loginToken']
+    tweet_id = request.json['tweetId']
+    content = request.json['content']
+  except ValueError:
+    traceback.print_exc()
+    return Response("Error: One or more of the inputs is invalid!", mimetype="text/plain", status=422)
+  except KeyError:
+    traceback.print_exc()
+    return Response("Error: One or more required fields are empty!", mimetype="text/plain", status=422)
+  except:
+    traceback.print_exc()
+    return Response("Error: Unknown error with an input!", mimetype="text/plain", status=400)
+
+  # tried error catching here, didnt work, on the login_token set below it seems to catch both errors, which is maybe best
+  # in order to be more secure and not tell exactly where the issue is?
+  # This is how I decided to verify login_token vs the DB, unsure if correct, but works.
+  if(login_token != None and login_token != ''):
+    # try:
+    login_token = dbh.run_query(
+        "SELECT s.token FROM `session` s INNER JOIN takes t ON s.user_id = t.user_id WHERE s.token = ? AND t.id = ?", [login_token, tweet_id])
+    # except IndexError:
+    #   traceback.print_exc()
+    #   return Response("Error: Login Token invalid, Please relog", mimetype="text/plain", status=404)
+    # except:
+    #   traceback.print_exc()
+    #   return Response("Error: Unkown Error With Token, Please Relog", mimetype="text/plain", status=400)
+
+  if(type(login_token) is str):
+    return dbh.exc_handler(login_token)
+
+  # same as above with login token, except this one has the error handling as well.
+  if(tweet_id != None and tweet_id != ''):
+    try:
+      tweet_id = dbh.run_query(
+          "SELECT t.id FROM takes t INNER JOIN `session` s ON t.user_id = s.user_id WHERE t.id = ? AND s.token = ?", [tweet_id, login_token[0]['token']])
+    except IndexError:
+      traceback.print_exc()
+      return Response("Error: tweetId invalid or loginToken invalid, Please relog and try again", mimetype="text/plain", status=404)
+    except:
+      traceback.print_exc()
+      return Response("Error: Unknown Error With tweetId or loginToken, Please relog and try again", mimetype="text/plain", status=400)
+
+  if(type(tweet_id) is str):
+    return dbh.exc_handler(tweet_id)
+
+  # update Query, includes setting the was_edited to 1(true) and edit_time to the current time(even though I probably won't use it until I rebuild!)
+  sql = "UPDATE takes t INNER JOIN `session` s ON t.user_id = s.user_id SET t.content = ?, t.was_edited = 1, t.edit_time = NOW() WHERE s.token = ? AND t.id = ?"
+
+  # run the update, update variable will equal the rowcount that's returned, should be 3.... I t
+  update = dbh.run_query(
+      sql, [content, login_token[0]['token'], tweet_id[0]['id']])
+
+  print(update)
+  if(type(update) is str):
+    return dbh.exc_handler(update)
+
+  if(update != 0):
+    updated_tweet_info = dbh.run_query(
+        "SELECT t.id AS tweetId, u.id AS userId, u.username, u.profile_pic_path AS userImageUrl, t.content, t.image_path AS imageUrl, t.created_at AS createdAt FROM takes t INNER JOIN users u ON t.user_id = u.id WHERE t.id = ?", [tweet_id[0]['id'], ])
+
+  else:
+    print(update)
+    traceback.print_exc()
+    return Response("Failed to update", mimetype="text/plain", status=400)
+
+  if(type(updated_tweet_info) is str):
+    return dbh.exc_handler(updated_tweet_info)
+
+  if(len(updated_tweet_info) != 1):
+    traceback.print_exc()
+    return Response("Failed to update", mimetype="text/plain", status=400)
+  else:
+    updated_tweet_json = json.dumps(updated_tweet_info, default=str)
+    return Response(updated_tweet_json, mimetype="application/json", status=201)

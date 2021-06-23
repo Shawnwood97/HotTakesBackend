@@ -62,6 +62,7 @@ def exc_handler(query):
   elif(query == "409"):
     return Response("Error: Possible duplicate data or foreign key conflict!", mimetype="text/plain", status=int(query))
   else:
+    traceback.print_exc()
     return Response("Internal Server Error, Please try again later!", mimetype="text/plain", status=500)
 
 
