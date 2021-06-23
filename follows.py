@@ -109,4 +109,5 @@ def remove_follow():
   if(rem_follow_rel == 1):
     return Response("Unfollow Success!", mimetype='text/plain', status=201)
   else:
-    return Response("Error unfollowing user!", mimetype='text/plain', status=400)
+    traceback.print_exc()
+    return Response("Error unfollowing user, token or followId invalid!", mimetype='text/plain', status=400)

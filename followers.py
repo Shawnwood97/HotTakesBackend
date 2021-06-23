@@ -19,25 +19,23 @@ def list_followers():
   # Select query with inner join to create a new temp table to compare params
   sql = "SELECT u.id AS userId, u.username, u.display_name, u.email, u.birthdate, u.first_name, u.last_name, u.headline AS bio, u.website_link, u.location, u.phone_number, u.is_verified, u.profile_pic_path AS imageUrl, u.profile_banner_path AS bannerUrl, u.is_active, u.created_at FROM users u INNER JOIN follows f ON u.id = f.follower_id WHERE f.followed_id = ?"
 
-  followers_list = dbh.run_query(sql, [user_id, ])
+  if(user_id != None and user_id != ''):
+    user_id = dbh.run_query(
+        "SELECT u.id from users u WHERE u.id = ?", [user_id, ])
+
+  if(type(user_id) is str):
+    return dbh.exc_handler(user_id)
+
+  try:
+    followers_list = dbh.run_query(
+        sql, [user_id[0]["id"]])
+  except IndexError:
+    return Response("userId does not exist!", mimetype="text/plain", status=404)
+  except:
+    return Response("Unkown Error with user Id!", mimetype="text/plain", status=400)
 
   if(type(followers_list) is str):
     return dbh.exc_handler(followers_list)
-
-  # List defined to append each follower into
-  # followers_list = []
-  # # loop through all followers and append each dict to the list.
-  # for follower in followers:
-  #   user_info_json = {
-  #       'userId': follower[0],
-  #       'email': follower[3],
-  #       'username': follower[1],
-  #       'bio': follower[7],
-  #       'birthdate': follower[4],
-  #       'imageUrl': follower[12],
-  #       'bannerUrl': follower[13]
-  #   }
-  #   followers_list.append(user_info_json)
 
   followers_json = json.dumps(followers_list, default=str)
   return Response(followers_json, mimetype='application/json', status=200)

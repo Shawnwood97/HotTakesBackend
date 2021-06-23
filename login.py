@@ -46,7 +46,6 @@ def login_user():
   if(row_id != -1):
     login_info = dbh.run_query(
         "SELECT u.id, username, email, headline, birthdate, profile_pic_path, profile_banner_path FROM users u INNER JOIN `session` s ON u.id = s.user_id WHERE s.token = ?", [login_token, ])
-    print(login_info)
   else:
     traceback.print_exc()
     return Response("Login Failed!", mimetype="text/plain", status=400)
@@ -97,4 +96,4 @@ def logout_user():
   if(deleted_token == 1):
     return Response(f"{deleted_token} Token Deleted!", mimetype="text/plain", status=200)
   else:
-    return Response("Failed to logout user, likely invalid otken", mimetype="text/plain", status=400)
+    return Response("Failed to logout user, likely invalid token", mimetype="text/plain", status=400)

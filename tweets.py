@@ -88,7 +88,15 @@ def create_tweet():
   sql = "INSERT INTO takes"
   # starting point for params to pass to run_query helper function
   # includes content because content is mandatory.
-  params = [content, user_info[0]["id"]]
+
+  # not sure if this is right, but when testing for errors, IndexError only ever came up when there was a wrong loginToken used, So I used that as the error here!
+  try:
+    params = [content, user_info[0]["id"]]
+  except IndexError:
+    traceback.print_exc()
+    return Response("Error: Login Token invalid, please relog", mimetype="text/plain", status=404)
+  except:
+    return Response("Error: Unkown Error", mimetype="text/plain", status=400)
 
   # If imageUrl param has a vaue, insert content and and image_path, otherwise, just content.
   if(image_url != None and image_url != ''):
