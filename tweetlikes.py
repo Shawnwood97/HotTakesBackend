@@ -83,3 +83,32 @@ def list_tweet_likes():
 
   liked_tweets_json = json.dumps(liked_tweets, default=str)
   return Response(liked_tweets_json, mimetype='application/json', status=200)
+
+
+def remove_tweet_like():
+  try:
+    login_token = request.json['loginToken']
+    tweet_id = int(request.json['tweetId'])
+
+  except ValueError:
+    traceback.print_exc()
+    return Response("Error: One or more of the inputs is invalid!", mimetype="text/plain", status=422)
+  except KeyError:
+    traceback.print_exc()
+    return Response("Error: One or more required fields are empty!", mimetype="text/plain", status=422)
+  except:
+    traceback.print_exc()
+    return Response("Error: Unknown error with an input!", mimetype="text/plain", status=400)
+
+  # this makes me feel like I am doing so many things wrong in other places!
+  removed_tweet_like = dbh.run_query(
+      "DELETE th FROM take_hot_cold th INNER JOIN `session` s ON th.user_id = s.user_id WHERE th.take_id = ? AND s.token = ?", [tweet_id, login_token])
+
+  if(type(removed_tweet_like) is str):
+    return dbh.exc_handler(removed_tweet_like)
+
+  if(removed_tweet_like == 1):
+    return Response("Unlike Success!", mimetype='text/plain', status=201)
+  else:
+    traceback.print_exc()
+    return Response("Error Unliking tweet, token or tweetId invalid!", mimetype='text/plain', status=400)

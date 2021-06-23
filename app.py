@@ -119,6 +119,11 @@ def call_add_tweet_like():
   return tweetlikes.add_tweet_like()
 
 
+@app.delete('/api/tweet-likes')
+def call_remove_tweet_like():
+  return tweetlikes.remove_tweet_like()
+
+
 if(len(sys.argv) > 1):
   mode = sys.argv[1]
 else:
