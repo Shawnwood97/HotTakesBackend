@@ -109,6 +109,10 @@ def call_delete_tweet():
 # ! ----------------- /API/TWEET-LIKES ---------------------
 # ! --------------------------------------------------------
 
+@app.get('/api/tweet-likes')
+def call_list_tweet_likes():
+  return tweetlikes.list_tweet_likes()
+
 
 @app.post('/api/tweet-likes')
 def call_add_tweet_like():

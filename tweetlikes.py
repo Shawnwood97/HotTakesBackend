@@ -49,3 +49,37 @@ def add_tweet_like():
     return dbh.exc_handler(like_id)
   else:
     return Response("Tweet Like Success!", mimetype='text/plain', status=201)
+
+
+def list_tweet_likes():
+    # set user_id using args because it is a get request
+  try:
+    tweet_id = request.args.get('tweetId')
+  except ValueError:
+    return Response("NaN", mimetype="text/plain", status=422)
+  except KeyError:
+    return Response("No tweetId Sent", mimetype="text/plain", status=400)
+  except:
+    traceback.print_exc()
+    return Response("Unknown Error with tweetId", mimetype="text/plain", status=400)
+
+  sql = "SELECT t.id AS tweetId, t.user_id AS userId, u.username FROM take_hot_cold t INNER JOIN users u ON t.user_id = u.id"
+
+  params = []
+
+  if(tweet_id != None and tweet_id != ''):
+    sql += ' WHERE t.id = ?'
+    params.append(tweet_id)
+  # Check for non mariadb exceptions
+
+  liked_tweets = dbh.run_query(sql, params)
+
+  if(type(liked_tweets) is str):
+    return dbh.exc_handler(liked_tweets)
+
+  # I know this isnt a perfect error catch, but it works for the time being!
+  if(len(liked_tweets) == 0):
+    return Response("tweetId does not exist!", mimetype="text/plain", status=404)
+
+  liked_tweets_json = json.dumps(liked_tweets, default=str)
+  return Response(liked_tweets_json, mimetype='application/json', status=200)
