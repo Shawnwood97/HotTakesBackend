@@ -9,6 +9,7 @@ import login
 import follows
 import followers
 import tweets
+import tweetlikes
 
 app = Flask(__name__)
 
@@ -102,6 +103,16 @@ def call_update_tweet():
 @app.delete('/api/tweets')
 def call_delete_tweet():
   return tweets.delete_tweet()
+
+
+# ! --------------------------------------------------------
+# ! ----------------- /API/TWEET-LIKES ---------------------
+# ! --------------------------------------------------------
+
+
+@app.post('/api/tweet-likes')
+def call_add_tweet_like():
+  return tweetlikes.add_tweet_like()
 
 
 if(len(sys.argv) > 1):

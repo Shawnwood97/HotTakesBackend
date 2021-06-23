@@ -224,7 +224,7 @@ def delete_tweet():
           "SELECT t.id FROM takes t INNER JOIN `session` s ON t.user_id = s.user_id WHERE t.id = ? AND s.token = ?", [tweet_id, login_token])
     except IndexError:
       traceback.print_exc()
-      return Response("Error: tweetId invalid or loginToken invalid, Please relog and try again", mimetype="text/plain", status=404)
+      return Response("Error: tweetId or loginToken invalid, Please relog and try again", mimetype="text/plain", status=404)
     except:
       traceback.print_exc()
       return Response("Error: Unknown Error With tweetId or loginToken, Please relog and try again", mimetype="text/plain", status=400)
@@ -236,7 +236,7 @@ def delete_tweet():
         "DELETE t FROM takes t INNER JOIN `session` s ON s.user_id = t.user_id WHERE t.id = ? AND s.token = ?", [tweet_id[0]['id'], login_token])
   except IndexError:
     traceback.print_exc()
-    return Response("Error: tweetId invalid or loginToken invalid, Please relog and try again", mimetype="text/plain", status=404)
+    return Response("Error: tweetId or loginToken invalid, Please relog and try again", mimetype="text/plain", status=404)
   except:
     traceback.print_exc()
     return Response("Error: Unknown Error With tweetId or loginToken, Please relog and try again", mimetype="text/plain", status=400)
