@@ -4,14 +4,16 @@ import traceback
 from flask import Flask, request, Response
 
 #! starting to think building my own responses instread of the loop may be better
-# def loop_items(cursor, rows):
-#   # Takes column headers from cursor.description, zips them to the rows returned by a query based on index position, into a dictionary for a more
-#   # readable return.
-#   headers = [i[0] for i in cursor.description]
-#   result = []
-#   for row in rows:
-#     result.append(dict(zip(headers, row)))
-#   return result
+
+
+def loop_items(cursor, rows):
+  # Takes column headers from cursor.description, zips them to the rows returned by a query based on index position, into a dictionary for a more
+  # readable return.
+  headers = [i[0] for i in cursor.description]
+  result = []
+  for row in rows:
+    result.append(dict(zip(headers, row)))
+  return result
 
 
 def run_query(sql, params=[]):
@@ -24,8 +26,8 @@ def run_query(sql, params=[]):
   try:
     cursor.execute(sql, params)
     if(sql.startswith('SELECT')):
-      result = cursor.fetchall()
-      # result = loop_items(cursor, data)
+      data = cursor.fetchall()
+      result = loop_items(cursor, data)
     elif(sql.startswith('INSERT')):
       conn.commit()
       result = cursor.lastrowid
@@ -63,9 +65,9 @@ def exc_handler(query):
     return Response("Internal Server Error, Please try again later!", mimetype="text/plain", status=500)
 
 
-# def update_handler(col, rows, params):
-#   sql = "UPDATE " + str(col) + " SET"
-#   for row, param in rows, params:
+# def update_handler(cols, rows, params):
+#   sql = "UPDATE " + str(cols) + " SET"
+#   for row, col in rows, cols:
 #     if(row != None and row != ''):
-#       sql += str(param) + "= ?,"
+#       sql += str(col) + "= ?,"
 #   return sql

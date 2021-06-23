@@ -8,6 +8,7 @@ import users
 import login
 import follows
 import followers
+import tweets
 
 app = Flask(__name__)
 
@@ -32,6 +33,11 @@ def call_list_followers():
   return followers.list_followers()
 
 
+@app.get('/api/tweets')
+def call_list_tweets():
+  return tweets.list_tweets()
+
+
 # * --------------------------------------------------------
 # * -------------------- POST REQUESTS ---------------------
 # * --------------------------------------------------------
@@ -49,6 +55,11 @@ def call_login_user():
 @app.post('/api/follows')
 def call_new_follow():
   return follows.new_follow()
+
+
+@app.post('/api/tweets')
+def call_create_tweet():
+  return tweets.create_tweet()
 
 # ? --------------------------------------------------------
 # ? -------------------- PATCH REQUESTS --------------------

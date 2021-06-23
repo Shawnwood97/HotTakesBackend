@@ -53,7 +53,7 @@ def list_follows():
     return Response("Error with id", mimetype="text/plain", status=400)
 
   # Select query with inner join to create a new temp table to compare params
-  sql = "SELECT u.id, u.username, u.display_name, u.email, u.birthdate, u.first_name, u.last_name, u.headline, u.website_link, u.location, u.phone_number, u.is_verified, u.profile_pic_path, u.profile_banner_path, u.is_active, u.created_at FROM users u INNER JOIN follows f ON u.id = f.followed_id WHERE f.follower_id = ?"
+  sql = "SELECT u.id AS userId, u.username, u.display_name, u.email, u.birthdate, u.first_name, u.last_name, u.headline AS bio, u.website_link, u.location, u.phone_number, u.is_verified, u.profile_pic_path AS imageUrl, u.profile_banner_path AS bannerUrl, u.is_active, u.created_at FROM users u INNER JOIN follows f ON u.id = f.followed_id WHERE f.follower_id = ?"
 
   followed_users = dbh.run_query(sql, [user_id, ])
 
@@ -61,22 +61,22 @@ def list_follows():
     return dbh.exc_handler(followed_users)
 
   # List defined to append followed each user into
-  users_list = []
-  # loop through all users returned by followed_users
-  for user in followed_users:
-    user_info_json = {
-        'userId': user[0],
-        'email': user[3],
-        'username': user[1],
-        'bio': user[7],
-        'birthdate': user[4],
-        'imageUrl': user[12],
-        'bannerUrl': user[13]
-    }
-    users_list.append(user_info_json)
+  # users_list = []
+  # # loop through all users returned by followed_users
+  # for user in followed_users:
+  #   user_info_json = {
+  #       'userId': user[0],
+  #       'email': user[3],
+  #       'username': user[1],
+  #       'bio': user[7],
+  #       'birthdate': user[4],
+  #       'imageUrl': user[12],
+  #       'bannerUrl': user[13]
+  #   }
+  #   users_list.append(user_info_json)
 
-  users_json = json.dumps(users_list, default=str)
-  return Response(users_json, mimetype='application/json', status=200)
+  followed_users_json = json.dumps(followed_users, default=str)
+  return Response(followed_users_json, mimetype='application/json', status=200)
 
 
 def remove_follow():

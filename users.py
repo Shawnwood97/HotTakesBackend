@@ -19,7 +19,7 @@ def list_users():
     return Response("Error with id", mimetype="text/plain", status=400)
 
   # Base for SELECT query
-  sql = "SELECT id, username, display_name, email, birthdate, first_name, last_name, headline, website_link, location, phone_number, is_verified, profile_pic_path, profile_banner_path, is_active, created_at FROM users"
+  sql = "SELECT id AS userId, username, display_name, email, birthdate, first_name, last_name, headline AS bio, website_link, location, phone_number, is_verified, profile_pic_path AS imageUrl, profile_banner_path AS bannerUrl, is_active, created_at FROM users"
 
   # Set params to empty list to use append later
   params = []
@@ -36,21 +36,21 @@ def list_users():
 
 #! changed this to be more resemble Alex' API now, to make it more plug n play with my tweeter project
   # List defined to append each user into
-  users_list = []
-  # loop through all users returned by users
-  for user in users:
-    user_info_json = {
-        'userId': user[0],
-        'email': user[3],
-        'username': user[1],
-        'bio': user[7],
-        'birthdate': user[4],
-        'imageUrl': user[12],
-        'bannerUrl': user[13]
-    }
-    users_list.append(user_info_json)
+  # users_list = []
+  # # loop through all users returned by users
+  # for user in users:
+  #   user_info_json = {
+  #       'userId': user[0],
+  #       'email': user[3],
+  #       'username': user[1],
+  #       'bio': user[7],
+  #       'birthdate': user[4],
+  #       'imageUrl': user[12],
+  #       'bannerUrl': user[13]
+  #   }
+  #   users_list.append(user_info_json)
   # took me a little while to realise I needed to dump here rather than wrapping the dict above in it to get it in a list.
-  users_json = json.dumps(users_list, default=str)
+  users_json = json.dumps(users, default=str)
   return Response(users_json, mimetype='application/json', status=200)
 
 
@@ -172,7 +172,7 @@ def update_user():
   if(update != 0):
     # ? Maybe I should build this while I build the UPDATE statement?
     updated_info = dbh.run_query(
-        "SELECT u.id, username, email, headline, birthdate, profile_pic_path, profile_banner_path FROM users u INNER JOIN `session` s ON u.id = s.user_id WHERE s.token = ?", [login_token, ])
+        "SELECT u.id AS userId, u.username, u.email, u.headline AS bio, u.birthdate, u.profile_pic_path AS imageUrl, u.profile_banner_path AS bannerUrl FROM users u INNER JOIN `session` s ON u.id = s.user_id WHERE s.token = ?", [login_token, ])
   else:
     traceback.print_exc()
     return Response("Failed to update", mimetype="text/plain", status=400)
@@ -180,22 +180,15 @@ def update_user():
   if(type(updated_info) is str):
     return dbh.exc_handler(updated_info)
 
-#! also leaving this to be defensive!
-  if(updated_info != None):
-    for col in updated_info:
-      updated_user = json.dumps({
-          "userId": col[0],
-          "email": col[2],
-          "username": col[1],
-          "bio": col[3],
-          "birthdate": col[4],
-          "imageUrl": col[5],
-          "bannerUrl": col[6]
-      }, default=str)
-    return Response(updated_user, mimetype="application/json", status=201)
-  else:
+  # if the length of updated info does not = 1, error, else return data.
+  # UPDATEs return rowcount
+  if(len(updated_info) != 1):
     traceback.print_exc()
     return Response("Failed to update", mimetype="text/plain", status=400)
+  else:
+    user_info_json = json.dumps(updated_info[0], default=str)
+    return Response(user_info_json, mimetype="application/json", status=201)
+
 
 #! Would this work?!?!?!?!?
 # ? sql = dbh.update_handler('users', ['username', 'email', 'headline', 'birthdate', 'profile_image_url', 'profile_banner_url', 'token'], [
