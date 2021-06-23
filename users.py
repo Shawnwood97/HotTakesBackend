@@ -19,7 +19,14 @@ def list_users():
     return Response("Error with id", mimetype="text/plain", status=400)
 
   # Base for SELECT query
-  sql = "SELECT id AS userId, username, display_name, email, birthdate, first_name, last_name, headline AS bio, website_link, location, phone_number, is_verified, profile_pic_path AS imageUrl, profile_banner_path AS bannerUrl, is_active, created_at FROM users"
+  if(user_id != None and user_id != ''):
+    user_id = dbh.run_query(
+        "SELECT u.id FROM users u WHERE u.id = ?", [user_id, ])
+
+    sql = "SELECT id AS userId, username, display_name, email, birthdate, first_name, last_name, headline AS bio, website_link, location, phone_number, is_verified, profile_pic_path AS imageUrl, profile_banner_path AS bannerUrl, is_active, created_at FROM users"
+
+  else:
+    sql = "SELECT id AS userId, username, display_name, email, birthdate, first_name, last_name, headline AS bio, website_link, location, phone_number, is_verified, profile_pic_path AS imageUrl, profile_banner_path AS bannerUrl, is_active, created_at FROM users"
 
   # Set params to empty list to use append later
   params = []
@@ -27,29 +34,19 @@ def list_users():
   # If user_id does not equal an empty stright and doesnt equal None, add to the end of the base query, and append user_id to params list
   if(user_id != None and user_id != ''):
     sql += " WHERE id = ?"
-    params.append(user_id)
+    # Check for non mariadb exceptions
+    try:
+      params.append(user_id[0]["id"])
+    except IndexError:
+      return Response("userId does not exist!", mimetype="text/plain", status=404)
+    except:
+      return Response("Unkown Error with userId!", mimetype="text/plain", status=400)
 
   users = dbh.run_query(sql, params)
 
   if(type(users) is str):
     return dbh.exc_handler(users)
 
-#! changed this to be more resemble Alex' API now, to make it more plug n play with my tweeter project
-  # List defined to append each user into
-  # users_list = []
-  # # loop through all users returned by users
-  # for user in users:
-  #   user_info_json = {
-  #       'userId': user[0],
-  #       'email': user[3],
-  #       'username': user[1],
-  #       'bio': user[7],
-  #       'birthdate': user[4],
-  #       'imageUrl': user[12],
-  #       'bannerUrl': user[13]
-  #   }
-  #   users_list.append(user_info_json)
-  # took me a little while to realise I needed to dump here rather than wrapping the dict above in it to get it in a list.
   users_json = json.dumps(users, default=str)
   return Response(users_json, mimetype='application/json', status=200)
 

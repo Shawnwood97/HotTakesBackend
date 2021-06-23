@@ -33,12 +33,14 @@ def login_user():
   if(type(user) is str):
     return dbh.exc_handler(user)
 
+  row_id = -1
+
   if(len(user) == 1):
     login_token = secrets.token_urlsafe(45)
     # insert query for creating a token
     sql_ins = "INSERT INTO session (token, user_id) VALUES (?,?)"
     # params for insert query
-    params_ins = [login_token, user[0][0]]
+    params_ins = [login_token, user[0]["id"]]
     row_id = dbh.run_query(sql_ins, params_ins)
 
   if(row_id != -1):
@@ -47,29 +49,26 @@ def login_user():
     print(login_info)
   else:
     traceback.print_exc()
-    return Response("Failed to update", mimetype="text/plain", status=400)
+    return Response("Login Failed!", mimetype="text/plain", status=400)
 
   if(type(login_info) is str):
     return dbh.exc_handler(login_info)
 
-  if(login_info != None):
     # this feels better than using double indexing ie. 'userId': login_info[0][0]
-    for col in login_info:
-      updated_login_json = json.dumps(
-          {
-              'userId': col[0],
-              'email': col[2],
-              'username': col[1],
-              'bio': col[3],
-              'birthdate': col[4],
-              'imageUrl': col[5],
-              'bannerUrl': col[6],
-              'loginToken': login_token
-          }, default=str)
+  for col in login_info:
+    print(col)
+    updated_login_json = json.dumps(
+        {
+            'userId': col["id"],
+            'email': col["email"],
+            'username': col["username"],
+            'bio': col["headline"],
+            'birthdate': col["birthdate"],
+            'imageUrl': col["profile_pic_path"],
+            'bannerUrl': col["profile_banner_path"],
+            'loginToken': login_token
+        }, default=str)
     return Response(updated_login_json, mimetype="application/json", status=201)
-  else:
-    traceback.print_exc()
-    return Response("Failed to update", mimetype="text/plain", status=400)
 
 
 def logout_user():
@@ -98,4 +97,4 @@ def logout_user():
   if(deleted_token == 1):
     return Response(f"{deleted_token} Token Deleted!", mimetype="text/plain", status=200)
   else:
-    return Response("Failed to logout user, likely invalid token", mimetype="text/plain", status=400)
+    return Response("Failed to logout user, likely invalid otken", mimetype="text/plain", status=400)

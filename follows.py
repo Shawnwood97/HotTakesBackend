@@ -32,7 +32,17 @@ def new_follow():
 
   # run_query function will return the id of the row, represented here as the relationship Id. Select statement returns a list of tuples
   # therefor user_id [0][0] is the actual id, and since only 1 relationship can be created at a time, this works.
-  rel_id = dbh.run_query(follow_rel_sql, [user_id[0][0], follow_id])
+  if(follow_id != None and follow_id != ''):
+    follow_id = dbh.run_query(
+        'SELECT u.id from users u WHERE u.id = ?', [follow_id, ])
+
+  try:
+    rel_id = dbh.run_query(
+        follow_rel_sql, [user_id[0]["user_id"], follow_id[0]["id"]])
+  except IndexError:
+    return Response("followId does not exist!", mimetype="text/plain", status=404)
+  except:
+    return Response("Unkown Error with user Id!", mimetype="text/plain", status=400)
 
   if(type(rel_id) is str):
     return dbh.exc_handler(rel_id)
@@ -53,27 +63,22 @@ def list_follows():
     return Response("Error with id", mimetype="text/plain", status=400)
 
   # Select query with inner join to create a new temp table to compare params
-  sql = "SELECT u.id AS userId, u.username, u.display_name, u.email, u.birthdate, u.first_name, u.last_name, u.headline AS bio, u.website_link, u.location, u.phone_number, u.is_verified, u.profile_pic_path AS imageUrl, u.profile_banner_path AS bannerUrl, u.is_active, u.created_at FROM users u INNER JOIN follows f ON u.id = f.followed_id WHERE f.follower_id = ?"
+  if(user_id != None and user_id != ''):
+    user_id = dbh.run_query(
+        "SELECT u.id FROM users u WHERE u.id = ?", [user_id, ])
 
-  followed_users = dbh.run_query(sql, [user_id, ])
+    sql = "SELECT u.id AS userId, u.username, u.display_name, u.email, u.birthdate, u.first_name, u.last_name, u.headline AS bio, u.website_link, u.location, u.phone_number, u.is_verified, u.profile_pic_path AS imageUrl, u.profile_banner_path AS bannerUrl, u.is_active, u.created_at FROM users u INNER JOIN follows f ON u.id = f.followed_id WHERE f.follower_id = ?"
+
+  # Check for non mariadb exceptions
+  try:
+    followed_users = dbh.run_query(sql, [user_id[0]["id"], ])
+  except IndexError:
+    return Response("userId does not exist!", mimetype="text/plain", status=404)
+  except:
+    return Response("Unknown error with userId", mimetype="text/plain", status=400)
 
   if(type(followed_users) is str):
     return dbh.exc_handler(followed_users)
-
-  # List defined to append followed each user into
-  # users_list = []
-  # # loop through all users returned by followed_users
-  # for user in followed_users:
-  #   user_info_json = {
-  #       'userId': user[0],
-  #       'email': user[3],
-  #       'username': user[1],
-  #       'bio': user[7],
-  #       'birthdate': user[4],
-  #       'imageUrl': user[12],
-  #       'bannerUrl': user[13]
-  #   }
-  #   users_list.append(user_info_json)
 
   followed_users_json = json.dumps(followed_users, default=str)
   return Response(followed_users_json, mimetype='application/json', status=200)

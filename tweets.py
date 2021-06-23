@@ -18,13 +18,15 @@ def list_tweets():
   # Base for SELECT query for user Id
   # todo fix select
 
-  get_user_id = dbh.run_query(
-      "SELECT u.id FROM users u WHERE u.id = ?", [user_id, ])
+  if(user_id != None and user_id != ''):
+    user_id = dbh.run_query(
+        "SELECT u.id FROM users u WHERE u.id = ?", [user_id, ])
 
-  if(type(get_user_id) is str):
-    return dbh.exc_handler(get_user_id)
-
-  sql = "SELECT t.id AS tweetId, u.id AS userId, u.username, t.content, u.profile_pic_path AS userImageUrl, t.image_path AS tweetImageUrl, t.created_at AS createdAt FROM users u LEFT JOIN takes t ON u.id = t.user_id"
+    sql = "SELECT t.id AS tweetId, u.id AS userId, u.username, t.content, u.profile_pic_path AS userImageUrl, t.image_path AS tweetImageUrl, t.created_at AS createdAt FROM users u INNER JOIN takes t ON u.id = t.user_id"
+  if(type(user_id) is str):
+    return dbh.exc_handler(user_id)
+  else:
+    sql = "SELECT t.id AS tweetId, u.id AS userId, u.username, t.content, u.profile_pic_path AS userImageUrl, t.image_path AS tweetImageUrl, t.created_at AS createdAt FROM users u INNER JOIN takes t ON u.id = t.user_id"
 
   # Set params to empty list to use append later
   params = []
@@ -32,10 +34,11 @@ def list_tweets():
   # If user_id does not equal an empty string and doesnt equal None, add to the end of the base query, and append user_id to params list
   if(user_id != None and user_id != ''):
     sql += " WHERE u.id = ?"
+    # Don't know if this is the right spot for this try/except, doesn't feel great, but works for now!
     try:
-      params.append(get_user_id[0]["id"])
+      params.append(user_id[0]["id"])
     except IndexError:
-      return Response("userId does not exist!", mimetype="text/plain", status=400)
+      return Response("userId does not exist!", mimetype="text/plain", status=404)
     except:
       return Response("Unkown Error with user Id!", mimetype="text/plain", status=400)
 
@@ -103,18 +106,6 @@ def create_tweet():
   if(new_tweet_id != None):
     new_tweet_info = dbh.run_query(
         "SELECT t.id, u.id, u.username, u.profile_pic_path AS userImageUrl, t.content, t.image_path AS imageUrl, t.created_at AS createdAt FROM takes t INNER JOIN users u ON t.user_id = u.id WHERE t.id = ?", [new_tweet_id, ])
-    # created_at = dbh.run_query(
-    #     "SELECT created_at FROM takes WHERE id = ?", [new_tweet_id, ])
-    # new_tweet_json = json.dumps(
-    #     {
-    #         "tweetId": new_tweet_id,
-    #         "userId": user_info[0][0],
-    #         "username": user_info[0][1],
-    #         "userImageUrl": user_info[0][5],
-    #         "content": content,
-    #         "createdAt": created_at[0][0],
-    #         "imageUrl": image_url
-    #     }, default=str)
 
     new_tweet_json = json.dumps(new_tweet_info, default=str)
     return Response(new_tweet_json, mimetype="application/json", status=201)
