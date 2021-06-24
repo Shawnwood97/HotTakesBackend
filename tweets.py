@@ -43,7 +43,7 @@ def list_tweets():
   if(type(tweets) is str):
     return dbh.exc_handler(tweets)
 
-  if((len(tweets) != 0 and type(user_id) is int) or (len(tweets) != 0 and type(tweet_id) is int)):
+  if(len(tweets) != 0):
     tweets_json = json.dumps(tweets, default=str)
     return Response(tweets_json, mimetype='application/json', status=200)
   elif(tweet_id == None or tweet_id == '' and type(user_id) is int):
@@ -51,6 +51,9 @@ def list_tweets():
     return Response(f"userId: {user_id} does not exist, or they have no tweets!", mimetype="text/plain", status=404)
   elif(user_id == None or user_id == '' and type(tweet_id) is int):
     return Response(f"tweetId: {tweet_id} does not exist!", mimetype="text/plain", status=404)
+  else:
+    traceback.print_exc()
+    return Response(f"Unknown Error with tweetId or userId!", mimetype="text/plain", status=404)
 
 
 def create_tweet():
