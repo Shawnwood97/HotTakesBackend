@@ -18,15 +18,7 @@ def list_tweets():
   # Base for SELECT query for user Id
   # todo fix select
 
-  if(user_id != None and user_id != ''):
-    user_id = dbh.run_query(
-        "SELECT u.id FROM users u WHERE u.id = ?", [user_id, ])
-
-    sql = "SELECT t.id AS tweetId, u.id AS userId, u.username, t.content, u.profile_pic_path AS userImageUrl, t.image_path AS tweetImageUrl, t.created_at AS createdAt FROM users u INNER JOIN takes t ON u.id = t.user_id"
-  if(type(user_id) is str):
-    return dbh.exc_handler(user_id)
-  else:
-    sql = "SELECT t.id AS tweetId, u.id AS userId, u.username, t.content, u.profile_pic_path AS userImageUrl, t.image_path AS tweetImageUrl, t.created_at AS createdAt FROM users u INNER JOIN takes t ON u.id = t.user_id"
+  sql = "SELECT t.id AS tweetId, u.id AS userId, u.username, t.content, u.profile_pic_path AS userImageUrl, t.image_path AS tweetImageUrl, t.created_at AS createdAt FROM users u INNER JOIN takes t ON u.id = t.user_id"
 
   # Set params to empty list to use append later
   params = []
@@ -36,7 +28,7 @@ def list_tweets():
     sql += " WHERE u.id = ?"
     # Don't know if this is the right spot for this try/except, doesn't feel great, but works for now!
     try:
-      params.append(user_id[0]["id"])
+      params.append(user_id)
     except IndexError:
       return Response("userId does not exist!", mimetype="text/plain", status=404)
     except:
@@ -51,8 +43,14 @@ def list_tweets():
   if(type(tweets) is str):
     return dbh.exc_handler(tweets)
 
-  tweets_json = json.dumps(tweets, default=str)
-  return Response(tweets_json, mimetype='application/json', status=200)
+  if((len(tweets) != 0 and type(user_id) is int) or (len(tweets) != 0 and type(tweet_id) is int)):
+    tweets_json = json.dumps(tweets, default=str)
+    return Response(tweets_json, mimetype='application/json', status=200)
+  elif(tweet_id == None or tweet_id == '' and type(user_id) is int):
+    # don't love this error, but it works for now!
+    return Response(f"userId: {user_id} does not exist, or they have no tweets!", mimetype="text/plain", status=404)
+  elif(user_id == None or user_id == '' and type(tweet_id) is int):
+    return Response(f"tweetId: {tweet_id} does not exist!", mimetype="text/plain", status=404)
 
 
 def create_tweet():
@@ -72,26 +70,22 @@ def create_tweet():
     traceback.print_exc()
     return Response("Error: Unknown error with an input!", mimetype="text/plain", status=400)
 
-  # # Statement to get user id from the session table for verification
-  # user_id_sql = "SELECT user_id FROM `session` s WHERE s.token = ?"
+  # query to get user id using the loginToken
+  user_sql = "SELECT user_id FROM `session` WHERE token = ?"
 
-  # # SELECT query will return the user id. #! removed to save an additional query
-  # user_id = dbh.run_query(user_id_sql, [login_token, ])
+  # set user_id
+  user_id = dbh.run_query(user_sql, [login_token, ])[0]['user_id']
 
-  user_info = dbh.run_query(
-      "SELECT u.id FROM users u INNER JOIN `session` s ON u.id = s.user_id WHERE s.token = ?", [login_token, ])
-
-  if(type(user_info) is str):
-    return dbh.exc_handler(user_info)
+  if(type(user_id) is str):
+    return dbh.exc_handler(user_id)
 
   # Insert Query
   sql = "INSERT INTO takes"
   # starting point for params to pass to run_query helper function
   # includes content because content is mandatory.
-
   # not sure if this is right, but when testing for errors, IndexError only ever came up when there was a wrong loginToken used, So I used that as the error here!
   try:
-    params = [content, user_info[0]["id"]]
+    params = [content, user_id]
   except IndexError:
     traceback.print_exc()
     return Response("Error: Login Token invalid, please relog", mimetype="text/plain", status=404)
@@ -160,7 +154,7 @@ def update_tweet():
   if(type(updated_tweet_info) is str):
     return dbh.exc_handler(updated_tweet_info)
 
-  # even more error handling!
+  # even more error handling! and return of data
   if(len(updated_tweet_info) == 1):
     updated_tweet_json = json.dumps(updated_tweet_info, default=str)
     return Response(updated_tweet_json, mimetype="application/json", status=200)
