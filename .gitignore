@@ -3,6 +3,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 dbcreds.py
+removedcode.py
 
 # C extensions
 *.so
