@@ -3,7 +3,6 @@ import dbh
 import json
 import traceback
 import sys
-import mariadb
 import users
 import login
 import follows
@@ -11,6 +10,7 @@ import followers
 import tweets
 import tweetlikes
 import comments
+import commentlikes
 
 app = Flask(__name__)
 
@@ -147,6 +147,25 @@ def call_update_comment():
 @app.delete('/api/comments')
 def call_delete_comment():
   return comments.delete_comment()
+
+# * --------------------------------------------------------
+# * ---------------- /API/COMMENT-LIKES --------------------
+# * --------------------------------------------------------
+
+
+@app.get('/api/comment-likes')
+def call_list_comment_likes():
+  return commentlikes.list_comment_likes()
+
+
+@app.post('/api/comment-likes')
+def call_add_comment_like():
+  return commentlikes.add_comment_like()
+
+
+@app.delete('/api/comment-likes')
+def call_remove_comment_like():
+  return commentlikes.remove_comment_like()
 
 
 if(len(sys.argv) > 1):
