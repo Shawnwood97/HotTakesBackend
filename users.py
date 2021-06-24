@@ -19,36 +19,37 @@ def list_users():
     return Response("Error with id", mimetype="text/plain", status=400)
 
   # Base for SELECT query
-  if(user_id != None and user_id != ''):
-    user_id = dbh.run_query(
-        "SELECT u.id FROM users u WHERE u.id = ?", [user_id, ])
-
-    sql = "SELECT id AS userId, username, display_name, email, birthdate, first_name, last_name, headline AS bio, website_link, location, phone_number, is_verified, profile_pic_path AS imageUrl, profile_banner_path AS bannerUrl, is_active, created_at FROM users"
-
-  else:
-    sql = "SELECT id AS userId, username, display_name, email, birthdate, first_name, last_name, headline AS bio, website_link, location, phone_number, is_verified, profile_pic_path AS imageUrl, profile_banner_path AS bannerUrl, is_active, created_at FROM users"
+  sql = "SELECT id AS userId, username, display_name, email, birthdate, first_name, last_name, headline AS bio, website_link, location, phone_number, is_verified, profile_pic_path AS imageUrl, profile_banner_path AS bannerUrl, is_active, created_at FROM users"
 
   # Set params to empty list to use append later
   params = []
 
   # If user_id does not equal an empty stright and doesnt equal None, add to the end of the base query, and append user_id to params list
   if(user_id != None and user_id != ''):
-    sql += " WHERE id = ?"
-    # Check for non mariadb exceptions
     try:
-      params.append(user_id[0]["id"])
+      user_id = dbh.run_query(
+          "SELECT u.id from users u WHERE u.id = ?", [user_id, ])[0]['id']
     except IndexError:
-      return Response("userId does not exist!", mimetype="text/plain", status=404)
+      return Response("Not a valid userId", mimetype="text/plain", status=400)
     except:
-      return Response("Unkown Error with userId!", mimetype="text/plain", status=400)
+      return Response("Unknown error with userId", mimetype="text/plain", status=400)
+
+    if(type(user_id) is str):
+      return dbh.exc_handler(user_id)
+
+    sql += " WHERE id = ?"
+    params.append(user_id)
 
   users = dbh.run_query(sql, params)
 
   if(type(users) is str):
     return dbh.exc_handler(users)
 
-  users_json = json.dumps(users, default=str)
-  return Response(users_json, mimetype='application/json', status=200)
+  if(len(users) != 0):
+    users_json = json.dumps(users, default=str)
+    return Response(users_json, mimetype='application/json', status=200)
+  else:
+    return Response("Unknown error getting users!", mimetype="text/plain", status=400)
 
 
 def create_user():
@@ -92,15 +93,9 @@ def create_user():
     if(type(ins_token) is str):
       return dbh.exc_handler(ins_token)
 
-    new_user_json = json.dumps(
-        {
-            "userId": new_id,
-            "email": email,
-            "username": username,
-            "bio": bio,
-            "birthdate": birthdate,
-            "loginToken": login_token
-        }, default=str)
+    new_user_info = dbh.run_query(
+        "SELECT u.id AS userId, u.email, u.username, u.headline AS bio, u.birthdate, s.token AS loginToken FROM users u INNER JOIN `session` s ON u.id = s.user_id WHERE u.id = ?", [new_id, ])
+    new_user_json = json.dumps(new_user_info, default=str)
     return Response(new_user_json, mimetype="application/json", status=201)
   else:
     return Response("Failed to create user", mimetype="text/plain", status=400)
@@ -159,37 +154,26 @@ def update_user():
   sql = sql[:-1]
   sql += " WHERE s.token = ?"
 
-  update = dbh.run_query(sql, params)
+  updated_rows = dbh.run_query(sql, params)
 
-  if(type(update) is str):
-    return dbh.exc_handler(update)
+  if(type(updated_rows) is str):
+    return dbh.exc_handler(updated_rows)
 
-#! Do I need this if block, in what case would the rowcount be 0??? Been trying to make it happen and can't
-#! leaving it to be "defensive"
-  if(update != 0):
-    # ? Maybe I should build this while I build the UPDATE statement?
-    updated_info = dbh.run_query(
-        "SELECT u.id AS userId, u.username, u.email, u.headline AS bio, u.birthdate, u.profile_pic_path AS imageUrl, u.profile_banner_path AS bannerUrl FROM users u INNER JOIN `session` s ON u.id = s.user_id WHERE s.token = ?", [login_token, ])
-  else:
-    traceback.print_exc()
-    return Response("Failed to update", mimetype="text/plain", status=400)
+  updated_user_info = dbh.run_query(
+      "SELECT u.id AS userId, u.username, u.email, u.headline AS bio, u.birthdate, u.profile_pic_path AS imageUrl, u.profile_banner_path AS bannerUrl FROM users u INNER JOIN `session` s ON u.id = s.user_id WHERE s.token = ?", [login_token, ])
+  # ? this error catch isnt perfect, because on duplicate data, it still sends this error, unsure on fix atm.
 
-  if(type(updated_info) is str):
-    return dbh.exc_handler(updated_info)
+  if(type(updated_user_info) is str):
+    return dbh.exc_handler(updated_user_info)
 
   # if the length of updated info does not = 1, error, else return data.
   # UPDATEs return rowcount
-  if(len(updated_info) != 1):
-    traceback.print_exc()
-    return Response("Failed to update", mimetype="text/plain", status=400)
-  else:
-    user_info_json = json.dumps(updated_info[0], default=str)
+  if(len(updated_user_info) == 1):
+    user_info_json = json.dumps(updated_user_info, default=str)
     return Response(user_info_json, mimetype="application/json", status=201)
-
-
-#! Would this work?!?!?!?!?
-# ? sql = dbh.update_handler('users', ['username', 'email', 'headline', 'birthdate', 'profile_image_url', 'profile_banner_url', 'token'], [
-# ?    username, email, bio, birthdate, image_url, banner_url])
+  else:
+    traceback.print_exc()
+    return Response("Invalid loginToken, Please relog and try again!", mimetype="text/plain", status=400)
 
 
 def delete_user():
@@ -208,8 +192,6 @@ def delete_user():
     traceback.print_exc()
     return Response("Error: Unknown error with an input!", mimetype="text/plain", status=400)
 
-  deleted_user = 0
-
   # Inner join seemes apropriate here to validate info rather than using mutiple queries to compare.
   deleted_user = dbh.run_query(
       "DELETE u FROM users u INNER JOIN `session` s ON u.id = s.user_id WHERE u.password = ? AND s.token = ?", [password, token])
@@ -221,4 +203,4 @@ def delete_user():
   if(deleted_user == 1):
     return Response(f"{deleted_user} User Deleted!", mimetype="text/plain", status=200)
   else:
-    return Response("Failed to delete user", mimetype="text/plain", status=400)
+    return Response("Failed to delete user, loginToken/Password comination is invalid!", mimetype="text/plain", status=400)

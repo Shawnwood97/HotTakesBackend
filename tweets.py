@@ -25,16 +25,35 @@ def list_tweets():
 
   # If user_id does not equal an empty string and doesnt equal None, add to the end of the base query, and append user_id to params list
   if(user_id != None and user_id != ''):
+    # this try ensures we can error catch in a decent way, as well allowes us to return an empty list if the user exists but has no tweets
+    try:
+      user_id = dbh.run_query(
+          "SELECT u.id from users u WHERE u.id = ?", [user_id, ])[0]['id']
+    except IndexError:
+      return Response("Not a valid userId", mimetype="text/plain", status=400)
+    except:
+      return Response("Unknown error with userId", mimetype="text/plain", status=400)
+
+    if(type(user_id) is str):
+      return dbh.exc_handler(user_id)
+
     sql += " WHERE u.id = ?"
     # Don't know if this is the right spot for this try/except, doesn't feel great, but works for now!
-    try:
-      params.append(user_id)
-    except IndexError:
-      return Response("userId does not exist!", mimetype="text/plain", status=404)
-    except:
-      return Response("Unkown Error with user Id!", mimetype="text/plain", status=400)
+    params.append(user_id)
 
   elif(tweet_id != None and tweet_id != ''):
+    # this try ensures we can error catch in a decent way
+    try:
+      tweet_id = dbh.run_query(
+          "SELECT t.id from takes t WHERE t.id = ?", [tweet_id, ])[0]['id']
+    except IndexError:
+      return Response("Not a valid tweetId", mimetype="text/plain", status=400)
+    except:
+      return Response("Unknown error with tweetId", mimetype="text/plain", status=400)
+
+    if(type(tweet_id) is str):
+      return dbh.exc_handler(tweet_id)
+
     sql += " WHERE t.id = ?"
     params.append(tweet_id)
 
@@ -43,17 +62,9 @@ def list_tweets():
   if(type(tweets) is str):
     return dbh.exc_handler(tweets)
 
-  if(len(tweets) != 0):
-    tweets_json = json.dumps(tweets, default=str)
-    return Response(tweets_json, mimetype='application/json', status=200)
-  elif(tweet_id == None or tweet_id == '' and type(user_id) is int):
-    # don't love this error, but it works for now!
-    return Response(f"userId: {user_id} does not exist, or they have no tweets!", mimetype="text/plain", status=404)
-  elif(user_id == None or user_id == '' and type(tweet_id) is int):
-    return Response(f"tweetId: {tweet_id} does not exist!", mimetype="text/plain", status=404)
-  else:
-    traceback.print_exc()
-    return Response(f"Unknown Error with tweetId or userId!", mimetype="text/plain", status=404)
+  # I think all errors are caught by this point.
+  tweets_json = json.dumps(tweets, default=str)
+  return Response(tweets_json, mimetype='application/json', status=200)
 
 
 def create_tweet():
@@ -76,8 +87,16 @@ def create_tweet():
   # query to get user id using the loginToken
   user_sql = "SELECT user_id FROM `session` WHERE token = ?"
 
-  # set user_id
-  user_id = dbh.run_query(user_sql, [login_token, ])[0]['user_id']
+  # set user_id, get errors
+  try:
+    user_id = dbh.run_query(user_sql, [login_token, ])[0]['user_id']
+  # not sure if this is right, but when testing for errors, IndexError only ever came up when there was a wrong loginToken used, So I used that as the error here!
+  except IndexError:
+    traceback.print_exc()
+    return Response("Error: Login Token invalid, please relog", mimetype="text/plain", status=404)
+  except:
+    traceback.print_exc()
+    return Response("Error: Unkown Error", mimetype="text/plain", status=400)
 
   if(type(user_id) is str):
     return dbh.exc_handler(user_id)
@@ -86,14 +105,7 @@ def create_tweet():
   sql = "INSERT INTO takes"
   # starting point for params to pass to run_query helper function
   # includes content because content is mandatory.
-  # not sure if this is right, but when testing for errors, IndexError only ever came up when there was a wrong loginToken used, So I used that as the error here!
-  try:
-    params = [content, user_id]
-  except IndexError:
-    traceback.print_exc()
-    return Response("Error: Login Token invalid, please relog", mimetype="text/plain", status=404)
-  except:
-    return Response("Error: Unkown Error", mimetype="text/plain", status=400)
+  params = [content, user_id]
 
   # If imageUrl param has a vaue, insert content and and image_path, otherwise, just content.
   if(image_url != None and image_url != ''):
@@ -122,7 +134,7 @@ def update_tweet():
   try:
     # Get required inputs
     login_token = request.json['loginToken']
-    tweet_id = str(request.json['tweetId'])
+    tweet_id = int(request.json['tweetId'])
     content = request.json['content']
   except ValueError:
     traceback.print_exc()
@@ -138,20 +150,31 @@ def update_tweet():
   sql = "UPDATE takes t INNER JOIN `session` s ON t.user_id = s.user_id SET t.content = ?, t.was_edited = 1, t.edit_time = NOW() WHERE s.token = ? AND t.id = ?"
 
   # run the update, update variable will equal the rowcount. Should be 1 if successful!
-  update = dbh.run_query(
+  updated_rows = dbh.run_query(
       sql, [content, login_token, tweet_id])
 
-  if(type(update) is str):
-    return dbh.exc_handler(update)
+  if(type(updated_rows) is str):
+    return dbh.exc_handler(updated_rows)
+
+  try:
+    tweet_id = dbh.run_query(
+        "SELECT t.id from takes t WHERE t.id = ?", [tweet_id, ])[0]['id']
+  except IndexError:
+    return Response("Invalid tweetId", mimetype="text/plain", status=400)
+  except:
+    return Response("Unknown error with tweetId", mimetype="text/plain", status=400)
+
+  if(type(tweet_id) is str):
+    return dbh.exc_handler(tweet_id)
 
   # only happens if update was successful.
   # on update use == 1 instead of != 0
-  if(update == 1):
+  if(updated_rows == 1):
     updated_tweet_info = dbh.run_query(
         "SELECT t.id AS tweetId, u.id AS userId, u.username, u.profile_pic_path AS userImageUrl, t.content, t.image_path AS imageUrl, t.created_at AS createdAt FROM takes t INNER JOIN users u ON t.user_id = u.id WHERE t.id = ?", [tweet_id, ])
   else:
     traceback.print_exc()
-    return Response("Error: Invalid tweetId or loginToken combination", mimetype="text/plain", status=403)
+    return Response("Error: Invalid tweetId and loginToken combination", mimetype="text/plain", status=403)
 
   # extra error handling, maybe not needed, butttt
   if(type(updated_tweet_info) is str):
