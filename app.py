@@ -10,6 +10,7 @@ import follows
 import followers
 import tweets
 import tweetlikes
+import comments
 
 app = Flask(__name__)
 
@@ -122,6 +123,30 @@ def call_add_tweet_like():
 @app.delete('/api/tweet-likes')
 def call_remove_tweet_like():
   return tweetlikes.remove_tweet_like()
+
+
+# ? --------------------------------------------------------
+# ? -------------------- /API/COMMENTS ---------------------
+# ? --------------------------------------------------------
+
+@app.get('/api/comments')
+def call_list_comments():
+  return comments.list_comments()
+
+
+@app.post('/api/comments')
+def call_create_comment():
+  return comments.create_comment()
+
+
+@app.patch('/api/comments')
+def call_update_comment():
+  return comments.update_comment()
+
+
+@app.delete('/api/comments')
+def call_delete_comment():
+  return comments.delete_comment()
 
 
 if(len(sys.argv) > 1):

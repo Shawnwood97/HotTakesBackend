@@ -149,13 +149,6 @@ def update_tweet():
   # update Query, includes setting the was_edited to 1(true) and edit_time to the current time(even though I probably won't use it until I rebuild!)
   sql = "UPDATE takes t INNER JOIN `session` s ON t.user_id = s.user_id SET t.content = ?, t.was_edited = 1, t.edit_time = NOW() WHERE s.token = ? AND t.id = ?"
 
-  # run the update, update variable will equal the rowcount. Should be 1 if successful!
-  updated_rows = dbh.run_query(
-      sql, [content, login_token, tweet_id])
-
-  if(type(updated_rows) is str):
-    return dbh.exc_handler(updated_rows)
-
   try:
     tweet_id = dbh.run_query(
         "SELECT t.id from takes t WHERE t.id = ?", [tweet_id, ])[0]['id']
@@ -166,6 +159,13 @@ def update_tweet():
 
   if(type(tweet_id) is str):
     return dbh.exc_handler(tweet_id)
+
+  # run the update, update variable will equal the rowcount. Should be 1 if successful!
+  updated_rows = dbh.run_query(
+      sql, [content, login_token, tweet_id])
+
+  if(type(updated_rows) is str):
+    return dbh.exc_handler(updated_rows)
 
   # only happens if update was successful.
   # on update use == 1 instead of != 0
@@ -203,6 +203,17 @@ def delete_tweet():
   except:
     traceback.print_exc()
     return Response("Error: Unknown error with an input!", mimetype="text/plain", status=400)
+
+  try:
+    tweet_id = dbh.run_query(
+        "SELECT t.id from takes t WHERE t.id = ?", [tweet_id, ])[0]['id']
+  except IndexError:
+    return Response("Invalid tweetId", mimetype="text/plain", status=400)
+  except:
+    return Response("Unknown error with tweetId", mimetype="text/plain", status=400)
+
+  if(type(tweet_id) is str):
+    return dbh.exc_handler(tweet_id)
 
   deleted_tweet = dbh.run_query(
       "DELETE t FROM takes t INNER JOIN `session` s ON t.user_id = s.user_id WHERE t.id = ? AND s.token = ?", [tweet_id, login_token])
