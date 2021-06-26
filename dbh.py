@@ -1,7 +1,7 @@
 import mariadb
 import dbconn
 import traceback
-from flask import Flask, request, Response
+from flask import Response
 
 #! starting to think building my own responses instread of the loop may be better
 
@@ -74,13 +74,11 @@ def input_handler(data, u_inputs=[]):
     {
       required: True,
       name: var_name,
-      user_data_name: varName,
       type: str
-    }.
+    },
     {
       required: True,
       name: var_name,
-      user_data_name: varName,
       type: str
     }
   ]
@@ -92,14 +90,12 @@ def input_handler(data, u_inputs=[]):
   }
   for u_input in u_inputs:
     try:
-      if(u_input['required']):
+      if(u_input['required'] == True):
         payload['data'][u_input['name']] = u_input['type'](
-            data[u_input['user_data_name']])
+            data[u_input['name']])
       else:
-        if(payload['data'][u_input['name']] == None or payload['data'][u_input['name']] == ''):
+        if(payload['data'].get(u_input['name']) == None or payload['data'].get(u_input['name']) == ''):
           payload['data'][u_input['name']] = None
-        # else:
-        #   payload['data'][u_input['name']] = u_input['type'](data.get(u_input['user_data_name']))
     except ValueError:
       traceback.print_exc()
       payload['success'] = False

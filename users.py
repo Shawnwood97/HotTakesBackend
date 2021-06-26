@@ -8,15 +8,20 @@ import secrets
 
 def list_users():
   # set user_id using args.get so it's not mandatory.
-  try:
-    #! USE .args FOR GET!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    # ? cant get this to work wrapped in int?!?!?!
-    user_id = request.args.get('userId')
-  except ValueError:
-    return Response("NaN", mimetype="text/plain", status=422)
-  except:
-    traceback.print_exc()
-    return Response("Error with id", mimetype="text/plain", status=400)
+
+  parsed_args = dbh.input_handler(request.args,
+                                  [
+                                      {
+                                          'required': False,
+                                          'name': 'userId',
+                                          'type': int
+                                      }
+                                  ]
+                                  )
+  if(parsed_args['success'] == False):
+    return parsed_args['error']
+  else:
+    parsed_args = parsed_args['data']
 
   # Base for SELECT query
   sql = "SELECT id AS userId, username, display_name, email, birthdate, first_name, last_name, headline AS bio, website_link, location, phone_number, is_verified, profile_pic_path AS imageUrl, profile_banner_path AS bannerUrl, is_active, created_at FROM users"
@@ -24,21 +29,9 @@ def list_users():
   # Set params to empty list to use append later
   params = []
 
-  # If user_id does not equal an empty stright and doesnt equal None, add to the end of the base query, and append user_id to params list
-  if(user_id != None and user_id != ''):
-    try:
-      user_id = dbh.run_query(
-          "SELECT u.id from users u WHERE u.id = ?", [user_id, ])[0]['id']
-    except IndexError:
-      return Response("Not a valid userId", mimetype="text/plain", status=400)
-    except:
-      return Response("Unknown error with userId", mimetype="text/plain", status=400)
-
-    if(type(user_id) is str):
-      return dbh.exc_handler(user_id)
-
+  if(parsed_args['userId'] != None and parsed_args['userId'] != ''):
     sql += " WHERE id = ?"
-    params.append(user_id)
+    params.append(parsed_args['userId'])
 
   users = dbh.run_query(sql, params)
 
@@ -49,7 +42,7 @@ def list_users():
     users_json = json.dumps(users, default=str)
     return Response(users_json, mimetype='application/json', status=200)
   else:
-    return Response("Unknown error getting users!", mimetype="text/plain", status=400)
+    return Response("User not found!", mimetype="text/plain", status=404)
 
 
 def create_user():
@@ -61,49 +54,48 @@ def create_user():
     bio = request.json['bio']
     # Get birthdate input then set ensure the format matches the database format.
     birthdate = request.json['birthdate']
+    # set birthdate to proper format using datetime library
     birthdate = datetime.strptime(birthdate, "%Y-%m-%d")
-  except ValueError:
-    traceback.print_exc()
-    return Response("Error: One or more of the inputs is invalid!", mimetype="text/plain", status=422)
   except KeyError:
     traceback.print_exc()
-    return Response("Error: One or more required fields are empty!", mimetype="text/plain", status=422)
+    return Response("Missing required information!", mimetype="text/plain", status=422)
   except:
     traceback.print_exc()
-    return Response("Error: Unknown error with an input!", mimetype="text/plain", status=400)
+    return Response("Unknown error with an input!", mimetype="text/plain", status=400)
 
   # Query
   sql = "INSERT INTO users (username, email, password, headline, birthdate) VALUES (?,?,?,?,?)"
   # starting point for params to pass to run_query helper function
   params = [username, email, password, bio, birthdate]
-  # params.extend((username, email, password, bio, birthdate))
+
+  for item in params:
+    # this is speicifically to catch "", as it gets passed the KeyError from above
+    if(item == ""):
+      return Response("Missing required information!", mimetype="text/plain", status=422)
+
   new_id = dbh.run_query(sql, params)
 
   if(type(new_id) is str):
     return dbh.exc_handler(new_id)
 
-  # If newly created row == None, fail.
-  if(new_id != None):
-    # using 45 bytes, as that is well above the suggested 32 from the docs that says in 2015 was sufficient.
-    login_token = secrets.token_urlsafe(45)
-    sql = "INSERT INTO session (user_id, token) VALUES (?,?)"
-    params = [new_id, login_token]
-    ins_token = dbh.run_query(sql, params)
+  # using 45 bytes, as that is well above the suggested 32 from the docs that says in 2015 was sufficient.
+  login_token = secrets.token_urlsafe(45)
+  sql = "INSERT INTO session (user_id, token) VALUES (?,?)"
+  params = [new_id, login_token]
+  ins_token = dbh.run_query(sql, params)
 
-    if(type(ins_token) is str):
-      return dbh.exc_handler(ins_token)
+  if(type(ins_token) is str):
+    return dbh.exc_handler(ins_token)
 
-    new_user_info = dbh.run_query(
-        "SELECT u.id AS userId, u.email, u.username, u.headline AS bio, u.birthdate, s.token AS loginToken FROM users u INNER JOIN `session` s ON u.id = s.user_id WHERE u.id = ?", [new_id, ])
-    new_user_json = json.dumps(new_user_info, default=str)
-    return Response(new_user_json, mimetype="application/json", status=201)
-  else:
-    return Response("Failed to create user", mimetype="text/plain", status=400)
+  new_user_info = dbh.run_query(
+      "SELECT u.id AS userId, u.email, u.username, u.headline AS bio, u.birthdate, s.token AS loginToken FROM users u INNER JOIN `session` s ON u.id = s.user_id WHERE u.id = ?", [new_id, ])
+  new_user_json = json.dumps(new_user_info[0], default=str)
+  return Response(new_user_json, mimetype="application/json", status=201)
 
 
 def update_user():
   try:
-    # Get all required inputs. #? Gotta decide If I want to allow all of the optional fields to be filled out on sign-up
+    # Get any inputs to be updated
     username = request.json.get('username')
     email = request.json.get('email')
     bio = request.json.get('bio')
@@ -114,15 +106,12 @@ def update_user():
     image_url = request.json.get('imageUrl')
     banner_url = request.json.get('bannerUrl')
     login_token = request.json['loginToken']
-  except ValueError:
-    traceback.print_exc()
-    return Response("Error: One or more of the inputs is invalid!", mimetype="text/plain", status=422)
   except KeyError:
     traceback.print_exc()
-    return Response("Error: One or more required fields are empty!", mimetype="text/plain", status=422)
+    return Response("One or more required fields are empty!", mimetype="text/plain", status=422)
   except:
     traceback.print_exc()
-    return Response("Error: Unknown error with an input!", mimetype="text/plain", status=400)
+    return Response("Unknown error with an input!", mimetype="text/plain", status=400)
 
   # Base for update query
   # sql_s = "SELECT "
@@ -150,9 +139,13 @@ def update_user():
     sql += " u.profile_banner_path = ?,"
     params.append(banner_url)
 
-  params.append(login_token)
-  sql = sql[:-1]
-  sql += " WHERE s.token = ?"
+  # check to see if params were passed, mainly for good error catching!
+  if(len(params) != 0):
+    params.append(login_token)
+    sql = sql[:-1]
+    sql += " WHERE s.token = ?"
+  else:
+    return Response("No data passed!", mimetype="text/plain", status=400)
 
   updated_rows = dbh.run_query(sql, params)
 
@@ -161,7 +154,6 @@ def update_user():
 
   updated_user_info = dbh.run_query(
       "SELECT u.id AS userId, u.username, u.email, u.headline AS bio, u.birthdate, u.profile_pic_path AS imageUrl, u.profile_banner_path AS bannerUrl FROM users u INNER JOIN `session` s ON u.id = s.user_id WHERE s.token = ?", [login_token, ])
-  # ? this error catch isnt perfect, because on duplicate data, it still sends this error, unsure on fix atm.
 
   if(type(updated_user_info) is str):
     return dbh.exc_handler(updated_user_info)
@@ -169,11 +161,11 @@ def update_user():
   # if the length of updated info does not = 1, error, else return data.
   # UPDATEs return rowcount
   if(len(updated_user_info) == 1):
-    user_info_json = json.dumps(updated_user_info, default=str)
+    user_info_json = json.dumps(updated_user_info[0], default=str)
     return Response(user_info_json, mimetype="application/json", status=201)
   else:
     traceback.print_exc()
-    return Response("Invalid loginToken, Please relog and try again!", mimetype="text/plain", status=400)
+    return Response("Error getting user after update!", mimetype="text/plain", status=404)
 
 
 def delete_user():
@@ -182,9 +174,6 @@ def delete_user():
     password = request.json['password']
     token = request.json['loginToken']
 
-  except ValueError:
-    traceback.print_exc()
-    return Response("Error: One or more of the inputs is invalid!", mimetype="text/plain", status=422)
   except KeyError:
     traceback.print_exc()
     return Response("Error: One or more required fields are empty!", mimetype="text/plain", status=422)
@@ -199,8 +188,8 @@ def delete_user():
   if(type(deleted_user) is str):
     return dbh.exc_handler(deleted_user)
 
-  #! I used fstring here to display "1 user deleted" doesn't seem particularly useful, will probably change!
+  # just return status if true, 403 if false
   if(deleted_user == 1):
-    return Response(f"{deleted_user} User Deleted!", mimetype="text/plain", status=200)
+    return Response(status=204)
   else:
-    return Response("Failed to delete user, loginToken/Password comination is invalid!", mimetype="text/plain", status=400)
+    return Response("Authorization Error!", mimetype="text/plain", status=403)

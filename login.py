@@ -8,7 +8,8 @@ import secrets
 
 def login_user():
   try:
-    username_email = request.json['usernameEmail']
+    username = request.json.get('username')
+    email = request.json.get('email')
     password = request.json['password']
   except ValueError:
     traceback.print_exc()
@@ -21,12 +22,17 @@ def login_user():
     return Response("Error: Unknown error with an input!", mimetype="text/plain", status=400)
 
   # create query depending on condition, this should work decently well as a condition. #? I think?
-  if("@" in username_email and "." in username_email):
-    sql = "SELECT id FROM users WHERE email = ? AND password = ?"
-  else:
-    sql = "SELECT id FROM users WHERE username = ? AND password = ?"
 
-  params = [username_email, password]
+  sql = "SELECT id FROM users WHERE password = ? AND"
+
+  params = [password]
+
+  if(username != None and username != ''):
+    sql += " username = ?"
+    params.append(username)
+  elif(email != None and email != ''):
+    sql += " email = ?"
+    params.append(email)
 
   user = dbh.run_query(sql, params)
 
@@ -43,39 +49,33 @@ def login_user():
     params_ins = [login_token, user[0]["id"]]
     row_id = dbh.run_query(sql_ins, params_ins)
 
-  if(row_id != -1):
-    login_info = dbh.run_query(
-        "SELECT u.id, username, email, headline, birthdate, profile_pic_path, profile_banner_path FROM users u INNER JOIN `session` s ON u.id = s.user_id WHERE s.token = ?", [login_token, ])
+    if(type(row_id) is str):
+      return dbh.exc_handler(row_id)
+
   else:
-    traceback.print_exc()
-    return Response("Login Failed!", mimetype="text/plain", status=400)
+    return Response("Invalid Authentication", mimetype="text/plain", status=403)
+
+  # if(row_id != -1):
+  login_info = dbh.run_query(
+      "SELECT u.id, username, email, headline, birthdate, profile_pic_path, profile_banner_path FROM users u INNER JOIN `session` s ON u.id = s.user_id WHERE s.token = ?", [login_token, ])
+
+  # else:
+  #   traceback.print_exc()
+  #   return Response("Login Failed!", mimetype="text/plain", status=400)
 
   if(type(login_info) is str):
     return dbh.exc_handler(login_info)
 
-    # this feels better than using double indexing ie. 'userId': login_info[0][0]
-  for col in login_info:
-    print(col)
-    updated_login_json = json.dumps(
-        {
-            'userId': col["id"],
-            'email': col["email"],
-            'username': col["username"],
-            'bio': col["headline"],
-            'birthdate': col["birthdate"],
-            'imageUrl': col["profile_pic_path"],
-            'bannerUrl': col["profile_banner_path"],
-            'loginToken': login_token
-        }, default=str)
-    return Response(updated_login_json, mimetype="application/json", status=201)
+  # this feels better than using double indexing ie. 'userId': login_info[0][0]
+  # Add login token to the dict for returning to user!
+  login_info[0].update({'loginToken': login_token})
+  updated_login_json = json.dumps(login_info[0], default=str)
+  return Response(updated_login_json, mimetype="application/json", status=201)
 
 
 def logout_user():
   try:
     login_token = request.json['loginToken']
-  except ValueError:
-    traceback.print_exc()
-    return Response("Error: One or more of the inputs is invalid!", mimetype="text/plain", status=422)
   except KeyError:
     traceback.print_exc()
     return Response("Error: One or more required fields are empty!", mimetype="text/plain", status=422)
@@ -94,6 +94,7 @@ def logout_user():
 
   #! Same thing with the token as the deleted user from before!
   if(deleted_token == 1):
-    return Response(f"{deleted_token} Token Deleted!", mimetype="text/plain", status=200)
+    # only a status response, no other data!
+    return Response(status=204)
   else:
-    return Response("Failed to logout user, likely invalid token", mimetype="text/plain", status=400)
+    return Response("Error logging out!", mimetype="text/plain", status=403)
