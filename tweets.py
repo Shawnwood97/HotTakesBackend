@@ -25,11 +25,14 @@ def list_tweets():
   # ? I think I really like this check specifically, tweetId one is probably less useful so get an error if no user, but an empty list for users without tweets!
   if(user_id != None and user_id != ''):
     # this try ensures we can error catch in a decent way, as well allowes us to return an empty list if the user exists but has no tweets
+    result = dbh.run_query(
+        "SELECT u.id from users u WHERE u.id = ?", [user_id, ])
+
+    if(result['success'] == False):
+      return result['error']
+
     try:
-      user_id = dbh.run_query(
-          "SELECT u.id from users u WHERE u.id = ?", [user_id, ])[0]['id']
-      if(type(user_id) is str):
-        return dbh.exc_handler(user_id)
+      user_id = result['data'][0]['id']
     except:
       return Response("Data not found!", mimetype="text/plain", status=404)
 
@@ -38,27 +41,16 @@ def list_tweets():
     params.append(user_id)
 
   elif(tweet_id != None and tweet_id != ''):
-    # ? going to comment this one out, think it is less important then the userId check!
-    # this try ensures we can error catch in a decent way
-    # try:
-    #   tweet_id = dbh.run_query(
-    #       "SELECT t.id from takes t WHERE t.id = ?", [tweet_id, ])[0]['id']
-
-    #   if(type(tweet_id) is str):
-    #     return dbh.exc_handler(tweet_id)
-    # except:
-    #   return Response("Data not found!", mimetype="text/plain", status=404)
-
     sql += " WHERE t.id = ?"
     params.append(tweet_id)
 
-  tweets = dbh.run_query(sql, params)
+  result = dbh.run_query(sql, params)
 
-  if(type(tweets) is str):
-    return dbh.exc_handler(tweets)
+  if(result['success'] == False):
+    return result['error']
 
   # I think all errors are caught by this point.
-  tweets_json = json.dumps(tweets, default=str)
+  tweets_json = json.dumps(result['data'], default=str)
   return Response(tweets_json, mimetype='application/json', status=200)
 
 
@@ -76,16 +68,19 @@ def create_tweet():
     traceback.print_exc()
     return Response("Unknown error with an input!", mimetype="text/plain", status=400)
 
-  # set user_id, get errors, I need the userId anyways, so the extra try/query to be more semanitic with errors makes sense.
+  # set user_id, get errors, I need the userId anyways, so the extra try/query to be more semanitic with errors makes sense
+  #
+  result = dbh.run_query(
+      "SELECT user_id FROM `session` WHERE token = ?", [login_token, ])
+
+  if(result['success'] == False):
+    return result['error']
+
   try:
-    user_id = dbh.run_query("SELECT user_id FROM `session` WHERE token = ?", [
-                            login_token, ])[0]['user_id']
+    user_id = result['data'][0]['user_id']
   except:
     traceback.print_exc()
     return Response("Authorization Error!", mimetype="text/plain", status=403)
-
-  if(type(user_id) is str):
-    return dbh.exc_handler(user_id)
 
   # Insert Query
   sql = "INSERT INTO takes"
@@ -100,16 +95,20 @@ def create_tweet():
   else:
     sql += " (content, user_id) VALUES (?,?)"
 
-  new_tweet_id = dbh.run_query(sql, params)
+  result = dbh.run_query(sql, params)
 
-  if(type(new_tweet_id) is str):
-    return dbh.exc_handler(new_tweet_id)
+  if(result['success'] == False):
+    return result['error']
 
-  if(new_tweet_id > -1):
+  if(result['data'] > -1):
     new_tweet_info = dbh.run_query(
-        "SELECT t.id AS tweetId, u.id AS userId, u.username, u.profile_pic_path AS userImageUrl, t.content, t.image_path AS imageUrl, t.created_at AS createdAt FROM takes t INNER JOIN users u ON t.user_id = u.id WHERE t.id = ?", [new_tweet_id, ])
+        "SELECT t.id AS tweetId, u.id AS userId, u.username, u.profile_pic_path AS userImageUrl, t.content, t.image_path AS imageUrl, t.created_at AS createdAt FROM takes t INNER JOIN users u ON t.user_id = u.id WHERE t.id = ?", [result['data'], ])
 
-    new_tweet_json = json.dumps(new_tweet_info[0], default=str)
+# using result over and over again as a var name seems like it may be a little confusing
+    if(new_tweet_info['success'] == False):
+      return new_tweet_info['error']
+
+    new_tweet_json = json.dumps(new_tweet_info['data'][0], default=str)
     return Response(new_tweet_json, mimetype="application/json", status=201)
   # I dont think there can be an else here, since error catches at this point would be caught by the helper function, put else here anyways!
   else:
@@ -135,37 +134,28 @@ def update_tweet():
   # update Query, includes setting the was_edited to 1(true) and edit_time to the current time(even though I probably won't use it until I rebuild!)
   sql = "UPDATE takes t INNER JOIN `session` s ON t.user_id = s.user_id SET t.content = ?, t.was_edited = 1, t.edit_time = NOW() WHERE s.token = ? AND t.id = ?"
 
-  # try:
-  #   tweet_id = dbh.run_query(
-  #       "SELECT t.id from takes t WHERE t.id = ?", [tweet_id, ])[0]['id']
-  # except:
-  #   return Response("Authorization Error!", mimetype="text/plain", status=403)
-
-  # if(type(tweet_id) is str):
-  #   return dbh.exc_handler(tweet_id)
-
   # run the update, update variable will equal the rowcount. Should be 1 if successful!
-  updated_rows = dbh.run_query(
+  result = dbh.run_query(
       sql, [content, login_token, tweet_id])
 
-  if(type(updated_rows) is str):
-    return dbh.exc_handler(updated_rows)
+  if(result['success'] == False):
+    return result['error']
 
   # only happens if update was successful.
   # on update use == 1 instead of != 0
-  if(updated_rows == 1):
+  if(result['data'] == 1):
     updated_tweet_info = dbh.run_query(
-        "SELECT t.id AS tweetId, u.id AS userId, u.username, u.profile_pic_path AS userImageUrl, t.content, t.image_path AS imageUrl, t.created_at AS createdAt FROM takes t INNER JOIN users u ON t.user_id = u.id WHERE t.id = ?", [tweet_id, ])
+        "SELECT t.id AS tweetId, u.id AS userId, u.username, u.profile_pic_path AS userImageUrl, t.content, t.image_path AS imageUrl, t.created_at AS createdAt FROM takes t INNER JOIN users u ON t.user_id = u.id WHERE t.id = ?", [result['data'], ])
   else:
     # this seems better?
     traceback.print_exc()
     return Response("Authorization Error!", mimetype="text/plain", status=403)
 
   # extra error handling, maybe not needed, butttt
-  if(type(updated_tweet_info) is str):
-    return dbh.exc_handler(updated_tweet_info)
+  if(updated_tweet_info['success'] == False):
+    return updated_tweet_info['error']
 
-  updated_tweet_json = json.dumps(updated_tweet_info[0], default=str)
+  updated_tweet_json = json.dumps(updated_tweet_info['data'][0], default=str)
   return Response(updated_tweet_json, mimetype="application/json", status=200)
 
 
@@ -185,13 +175,13 @@ def delete_tweet():
     traceback.print_exc()
     return Response("Unknown error with an input!", mimetype="text/plain", status=400)
 
-  deleted_tweet = dbh.run_query(
+  result = dbh.run_query(
       "DELETE t FROM takes t INNER JOIN `session` s ON t.user_id = s.user_id WHERE t.id = ? AND s.token = ?", [tweet_id, login_token])
 
-  if(type(deleted_tweet) is str):
-    return dbh.exc_handler(deleted_tweet)
+  if(result['success'] == False):
+    return result['error']
 
-  if(deleted_tweet == 1):
+  if(result['data'] == 1):
     return Response(status=204)
   else:
     traceback.print_exc()

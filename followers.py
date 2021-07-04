@@ -22,13 +22,12 @@ def list_followers():
   # Select query with inner join to create a new temp table to compare params
   sql = "SELECT u.id AS userId, u.username, u.display_name, u.email, u.birthdate, u.first_name, u.last_name, u.headline AS bio, u.website_link, u.location, u.phone_number, u.is_verified, u.profile_pic_path AS imageUrl, u.profile_banner_path AS bannerUrl, u.is_active, u.created_at FROM users u INNER JOIN follows f ON u.id = f.follower_id WHERE f.followed_id = ?"
 
-  followers_list = dbh.run_query(
+  result = dbh.run_query(
       sql, [user_id, ])
 
-  if(type(followers_list) is str):
-    return dbh.exc_handler(followers_list)
+  if(result['success'] == False):
+    return result['error']
 
-  print(len(followers_list))
   # I think != 0 works best here, since == 1 would only work in the case of 1 follower, I suppose > 0 would work as well.
-  followers_json = json.dumps(followers_list, default=str)
+  followers_json = json.dumps(result['data'], default=str)
   return Response(followers_json, mimetype='application/json', status=200)

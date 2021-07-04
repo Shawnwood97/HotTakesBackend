@@ -8,16 +8,14 @@ import secrets
 
 def list_users():
   # set user_id using args.get so it's not mandatory.
-
-  parsed_args = dbh.input_handler(request.args,
-                                  [
-                                      {
-                                          'required': False,
-                                          'name': 'userId',
-                                          'type': int
-                                      }
-                                  ]
-                                  )
+  arg_scheme = [
+      {
+          'required': False,
+          'name': 'userId',
+          'type': int
+      }
+  ]
+  parsed_args = dbh.input_handler(request.args, arg_scheme)
   if(parsed_args['success'] == False):
     return parsed_args['error']
   else:
@@ -29,17 +27,17 @@ def list_users():
   # Set params to empty list to use append later
   params = []
 
-  if(parsed_args['userId'] != None and parsed_args['userId'] != ''):
+  if(parsed_args.get('userId') != None and parsed_args.get('userId') != ''):
     sql += " WHERE id = ?"
     params.append(parsed_args['userId'])
 
-  users = dbh.run_query(sql, params)
+  result = dbh.run_query(sql, params)
 
-  if(type(users) is str):
-    return dbh.exc_handler(users)
+  if(result['success'] == False):
+    return result['error']
 
-  if(len(users) != 0):
-    users_json = json.dumps(users, default=str)
+  if(len(result['data']) != 0):
+    users_json = json.dumps(result['data'], default=str)
     return Response(users_json, mimetype='application/json', status=200)
   else:
     return Response("User not found!", mimetype="text/plain", status=404)
@@ -73,23 +71,28 @@ def create_user():
     if(item == ""):
       return Response("Missing required information!", mimetype="text/plain", status=422)
 
-  new_id = dbh.run_query(sql, params)
+  result = dbh.run_query(sql, params)
 
-  if(type(new_id) is str):
-    return dbh.exc_handler(new_id)
+  if(result['success'] == False):
+    return result['error']
 
   # using 45 bytes, as that is well above the suggested 32 from the docs that says in 2015 was sufficient.
   login_token = secrets.token_urlsafe(45)
   sql = "INSERT INTO session (user_id, token) VALUES (?,?)"
-  params = [new_id, login_token]
-  ins_token = dbh.run_query(sql, params)
+  params = [result['data'], login_token]
+  result_token = dbh.run_query(sql, params)
 
-  if(type(ins_token) is str):
-    return dbh.exc_handler(ins_token)
+  if(result_token['success'] == False):
+    return result_token['error']
 
-  new_user_info = dbh.run_query(
-      "SELECT u.id AS userId, u.email, u.username, u.headline AS bio, u.birthdate, s.token AS loginToken FROM users u INNER JOIN `session` s ON u.id = s.user_id WHERE u.id = ?", [new_id, ])
-  new_user_json = json.dumps(new_user_info[0], default=str)
+# todo dont need this select, I have all data from above! refactor
+  new_user_result = dbh.run_query(
+      "SELECT u.id AS userId, u.email, u.username, u.headline AS bio, u.birthdate, s.token AS loginToken FROM users u INNER JOIN `session` s ON u.id = s.user_id WHERE u.id = ?", [result['data'], ])
+
+  if(new_user_result['success'] == False):
+    return new_user_result['error']
+
+  new_user_json = json.dumps(new_user_result['data'][0], default=str)
   return Response(new_user_json, mimetype="application/json", status=201)
 
 
@@ -147,21 +150,21 @@ def update_user():
   else:
     return Response("No data passed!", mimetype="text/plain", status=400)
 
-  updated_rows = dbh.run_query(sql, params)
+  result = dbh.run_query(sql, params)
 
-  if(type(updated_rows) is str):
-    return dbh.exc_handler(updated_rows)
+  if(result['success'] == False):
+    return result['error']
 
   updated_user_info = dbh.run_query(
       "SELECT u.id AS userId, u.username, u.email, u.headline AS bio, u.birthdate, u.profile_pic_path AS imageUrl, u.profile_banner_path AS bannerUrl FROM users u INNER JOIN `session` s ON u.id = s.user_id WHERE s.token = ?", [login_token, ])
 
-  if(type(updated_user_info) is str):
-    return dbh.exc_handler(updated_user_info)
+  if(updated_user_info['success'] == False):
+    return updated_user_info['error']
 
   # if the length of updated info does not = 1, error, else return data.
   # UPDATEs return rowcount
-  if(len(updated_user_info) == 1):
-    user_info_json = json.dumps(updated_user_info[0], default=str)
+  if(len(updated_user_info['data']) == 1):
+    user_info_json = json.dumps(updated_user_info['data'][0], default=str)
     return Response(user_info_json, mimetype="application/json", status=201)
   else:
     traceback.print_exc()
@@ -182,14 +185,14 @@ def delete_user():
     return Response("Error: Unknown error with an input!", mimetype="text/plain", status=400)
 
   # Inner join seemes apropriate here to validate info rather than using mutiple queries to compare.
-  deleted_user = dbh.run_query(
+  result = dbh.run_query(
       "DELETE u FROM users u INNER JOIN `session` s ON u.id = s.user_id WHERE u.password = ? AND s.token = ?", [password, token])
 
-  if(type(deleted_user) is str):
-    return dbh.exc_handler(deleted_user)
+  if(result['success'] == False):
+    return result['error']
 
   # just return status if true, 403 if false
-  if(deleted_user == 1):
+  if(result['data'] == 1):
     return Response(status=204)
   else:
     return Response("Authorization Error!", mimetype="text/plain", status=403)

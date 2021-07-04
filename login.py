@@ -34,42 +34,37 @@ def login_user():
     sql += " email = ?"
     params.append(email)
 
-  user = dbh.run_query(sql, params)
+  result = dbh.run_query(sql, params)
 
-  if(type(user) is str):
-    return dbh.exc_handler(user)
+  if(result['success'] == False):
+    return result['error']
 
   row_id = -1
 
-  if(len(user) == 1):
+  if(len(result['data']) == 1):
     login_token = secrets.token_urlsafe(45)
     # insert query for creating a token
     sql_ins = "INSERT INTO session (token, user_id) VALUES (?,?)"
     # params for insert query
-    params_ins = [login_token, user[0]["id"]]
-    row_id = dbh.run_query(sql_ins, params_ins)
+    params_ins = [login_token, result['data'][0]["id"]]
+    result = dbh.run_query(sql_ins, params_ins)
 
-    if(type(row_id) is str):
-      return dbh.exc_handler(row_id)
+    if(result['success'] == False):
+      return result['error']
 
   else:
     return Response("Invalid Authentication", mimetype="text/plain", status=403)
 
-  # if(row_id != -1):
   login_info = dbh.run_query(
-      "SELECT u.id, username, email, headline, birthdate, profile_pic_path, profile_banner_path FROM users u INNER JOIN `session` s ON u.id = s.user_id WHERE s.token = ?", [login_token, ])
+      "SELECT u.id AS userId, username, email, headline, birthdate, profile_pic_path, profile_banner_path FROM users u INNER JOIN `session` s ON u.id = s.user_id WHERE s.token = ?", [login_token, ])
 
-  # else:
-  #   traceback.print_exc()
-  #   return Response("Login Failed!", mimetype="text/plain", status=400)
-
-  if(type(login_info) is str):
-    return dbh.exc_handler(login_info)
+  if(login_info['success'] == False):
+    return login_info['error']
 
   # this feels better than using double indexing ie. 'userId': login_info[0][0]
   # Add login token to the dict for returning to user!
-  login_info[0].update({'loginToken': login_token})
-  updated_login_json = json.dumps(login_info[0], default=str)
+  login_info['data'][0].update({'loginToken': login_token})
+  updated_login_json = json.dumps(login_info['data'][0], default=str)
   return Response(updated_login_json, mimetype="application/json", status=201)
 
 
@@ -83,17 +78,14 @@ def logout_user():
     traceback.print_exc()
     return Response("Error: Unknown error with an input!", mimetype="text/plain", status=400)
 
-  deleted_token = 0
-
   # Inner join seemes apropriate here to validate info rather than using mutiple queries to compare.
-  deleted_token = dbh.run_query(
+  result = dbh.run_query(
       "DELETE s FROM `session` s WHERE s.token = ?", [login_token, ])
 
-  if(type(deleted_token) is str):
-    return dbh.exc_handler(deleted_token)
+  if(result['success'] == False):
+    return result['error']
 
-  #! Same thing with the token as the deleted user from before!
-  if(deleted_token == 1):
+  if(result['data'] == 1):
     # only a status response, no other data!
     return Response(status=204)
   else:

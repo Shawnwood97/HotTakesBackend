@@ -3,8 +3,6 @@ import dbconn
 import traceback
 from flask import Response
 
-#! starting to think building my own responses instread of the loop may be better
-
 
 def loop_items(cursor, rows):
   # Takes column headers from cursor.description, zips them to the rows returned by a query based on index position, into a dictionary for a more
@@ -20,50 +18,64 @@ def run_query(sql, params=[]):
   # This function will run all of the queries, keeping it DRY, params starts as an empty list because we don't always need them.
   # data = None  # Where data that we want to loop through before returning will be stored
   # Where data that we want to return will be stored, post loop or no loop required.
-  result = None
+  result = {
+      'success': True,
+      'error': None,
+      'data': None
+  }
   conn = dbconn.open_connection()
   cursor = dbconn.create_cursor(conn)
   try:
     cursor.execute(sql, params)
     if(sql.startswith('SELECT')):
       data = cursor.fetchall()
-      result = loop_items(cursor, data)
+      result['data'] = loop_items(cursor, data)
     elif(sql.startswith('INSERT')):
       conn.commit()
-      result = cursor.lastrowid
+      result['data'] = cursor.lastrowid
     elif(sql.startswith('UPDATE') or sql.startswith('DELETE')):
       conn.commit()
-      result = cursor.rowcount
+      result['data'] = cursor.rowcount
     else:
-      result = "405"
+      result['success'] = False
+      result['error'] = Response(
+          "Error: Method Not Allowed!", mimetype="text/plain", status=405)
 
   except mariadb.InternalError:
-    result = "500"
+    result['success'] = False
+    result['error'] = Response(
+        "Internal Server Error, Please try again later!", mimetype="text/plain", status=500)
     traceback.print_exc()
   except mariadb.IntegrityError:
-    result = "409"
+    result['success'] = False
+    result['error'] = Response(
+        "Error: Possible duplicate data or foreign key conflict!", mimetype="text/plain", status=409)
     traceback.print_exc()
   except mariadb.DataError:
-    result = "500"
+    result['success'] = False
+    result['error'] = Response(
+        "Internal Server Error, Please try again later!", mimetype="text/plain", status=500)
     traceback.print_exc()
   except:
-    result = "500"
+    result['success'] = False
+    result['error'] = Response(
+        "Internal Server Error, Please try again later!", mimetype="text/plain", status=500)
     traceback.print_exc()
 
   dbconn.close_all(conn, cursor)
 
   return result
 
-
-def exc_handler(query):
-  # exception handler function that takes the result of the run_query function and returns the proper response.
-  if(query == "405"):
-    return Response("Error: Method Not Allowed!", mimetype="text/plain", status=int(query))
-  elif(query == "409"):
-    return Response("Error: Possible duplicate data or foreign key conflict!", mimetype="text/plain", status=int(query))
-  else:
-    traceback.print_exc()
-    return Response("Internal Server Error, Please try again later!", mimetype="text/plain", status=500)
+# !delete lat
+# def exc_handler(query):
+#   # exception handler function that takes the result of the run_query function and returns the proper response.
+#   if(query == "405"):
+#     return Response("Error: Method Not Allowed!", mimetype="text/plain", status=int(query))
+#   elif(query == "409"):
+#     return Response("Error: Possible duplicate data or foreign key conflict!", mimetype="text/plain", status=int(query))
+#   else:
+#     traceback.print_exc()
+#     return Response("Internal Server Error, Please try again later!", mimetype="text/plain", status=500)
 
 
 def input_handler(data, u_inputs=[]):
@@ -94,8 +106,9 @@ def input_handler(data, u_inputs=[]):
         payload['data'][u_input['name']] = u_input['type'](
             data[u_input['name']])
       else:
-        if(payload['data'].get(u_input['name']) == None or payload['data'].get(u_input['name']) == ''):
-          payload['data'][u_input['name']] = None
+        if(data.get(u_input['name']) != None and data.get(u_input['name']) != ''):
+          payload['data'][u_input['name']] = u_input['type'](
+              data[u_input['name']])
     except ValueError:
       traceback.print_exc()
       payload['success'] = False
@@ -113,11 +126,3 @@ def input_handler(data, u_inputs=[]):
           f"Error: Unknown data error with {u_input['name']}", mimetype="text/plain", status=400)
 
     return payload
-
-
-# def update_handler(cols, rows, params):
-#   sql = "UPDATE " + str(cols) + " SET"
-#   for row, col in rows, cols:
-#     if(row != None and row != ''):
-#       sql += str(col) + "= ?,"
-#   return sql

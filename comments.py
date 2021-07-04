@@ -24,26 +24,13 @@ def list_comments():
   # Base for SELECT query
   sql = "SELECT c.id AS commentId, c.take_id AS tweetId, c.user_id AS userId, u.username, c.content, c.created_at AS createdAt FROM comments c INNER JOIN users u ON c.user_id = u.id WHERE c.take_id = ?"
 
-  # this try ensures we can error catch in a decent way
-  # ? more overkill
-  # try:
-  #   tweet_id = dbh.run_query(
-  #       "SELECT t.id from takes t WHERE t.id = ?", [tweet_id, ])[0]['id']
-  # except IndexError:
-  #   return Response("Not a valid tweetId", mimetype="text/plain", status=400)
-  # except:
-  #   return Response("Unknown error with tweetId", mimetype="text/plain", status=400)
-
-  # if(type(tweet_id) is str):
-  #   return dbh.exc_handler(tweet_id)
-
   comments = dbh.run_query(sql, [tweet_id, ])
 
-  if(type(comments) is str):
-    return dbh.exc_handler(comments)
+  if(comments['success'] == False):
+    return comments['error']
 
   # I think all errors are caught by this point.
-  comments_json = json.dumps(comments, default=str)
+  comments_json = json.dumps(comments['data'], default=str)
   return Response(comments_json, mimetype='application/json', status=200)
 
 
@@ -69,27 +56,16 @@ def create_comment():
   user_sql = "SELECT user_id FROM `session` WHERE token = ?"
 
   # set user_id, get errors for login token, this makes sense to me since I do need this later, so verification here seems ok.
+  results = dbh.run_query(user_sql, [login_token, ])
+
+  if(results['success'] == False):
+    return results['error']
+
   try:
-    user_id = dbh.run_query(user_sql, [login_token, ])[0]['user_id']
+    user_id = results['data'][0]['user_id']
   except:
     traceback.print_exc()
     return Response("Authorization Error", mimetype="text/plain", status=403)
-
-  if(type(user_id) is str):
-    return dbh.exc_handler(user_id)
-
-  # verify tweet id against the DB
-  # ? overkill??
-  # try:
-  #   tweet_id = dbh.run_query(
-  #       "SELECT t.id from takes t WHERE t.id = ?", [tweet_id, ])[0]['id']
-  # except IndexError:
-  #   return Response("Invalid tweetId", mimetype="text/plain", status=400)
-  # except:
-  #   return Response("Unknown error with tweetId", mimetype="text/plain", status=400)
-
-  # if(type(tweet_id) is str):
-  #   return dbh.exc_handler(tweet_id)
 
   # Insert Query
   sql = "INSERT INTO comments (user_id, take_id, content) VALUES (?,?,?)"
@@ -97,19 +73,21 @@ def create_comment():
   # includes content because content is mandatory.
   params = [user_id, tweet_id, content]
 
-  new_comment_id = dbh.run_query(sql, params)
+  result = dbh.run_query(sql, params)
 
-  if(type(new_comment_id) is str):
-    return dbh.exc_handler(new_comment_id)
+  if(result['success'] == False):
+    return result['error']
+
+  new_comment_id = result['data']
 
   if(new_comment_id != None):
     new_comment_info = dbh.run_query(
         "SELECT c.id AS commentId, c.take_id AS tweetId, c.user_id AS userId, u.username, c.content, c.created_at AS createdAt FROM comments c INNER JOIN users u ON c.user_id = u.id WHERE c.id = ?", [new_comment_id, ])
 
-    if(type(new_comment_info) is str):
-      return dbh.exc_handler(new_comment_info)
+    if(new_comment_info['success'] == False):
+      return new_comment_info['error']
 
-    new_comment_json = json.dumps(new_comment_info[0], default=str)
+    new_comment_json = json.dumps(new_comment_info['data'], default=str)
     return Response(new_comment_json, mimetype="application/json", status=201)
   else:
     return Response("Error getting comment after insert!", mimetype="text/plain", status=404)
@@ -135,28 +113,17 @@ def update_comment():
 
   # update Query, includes setting the was_edited to 1(true) and edit_time to the current time(even though I probably won't use it until I rebuild!)
   sql = "UPDATE comments c INNER JOIN `session` s ON c.user_id = s.user_id SET c.content = ?, c.was_edited = 1, c.edit_time = NOW() WHERE s.token = ? AND c.id = ?"
-# ? more overkill?
-  # try:
-  #   comment_id = dbh.run_query(
-  #       "SELECT c.id from comments c WHERE c.id = ?", [comment_id, ])[0]['id']
-  # except IndexError:
-  #   return Response("Invalid tweetId", mimetype="text/plain", status=400)
-  # except:
-  #   return Response("Unknown error with tweetId", mimetype="text/plain", status=400)
-
-  # if(type(comment_id) is str):
-  #   return dbh.exc_handler(comment_id)
 
   # run the update, update variable will equal the rowcount. Should be 1 if successful!
-  updated_rows = dbh.run_query(
+  result = dbh.run_query(
       sql, [content, login_token, comment_id])
 
-  if(type(updated_rows) is str):
-    return dbh.exc_handler(updated_rows)
+  if(result['success'] == False):
+    return result['error']
 
   # only happens if update was successful.
   # on update use == 1 instead of != 0
-  if(updated_rows == 1):
+  if(result['data'] == 1):
     updated_comment_info = dbh.run_query(
         "SELECT c.id AS commentId, c.take_id AS tweetId, c.user_id AS userId, u.username, c.content, c.created_at AS createdAt FROM comments c INNER JOIN users u ON c.user_id = u.id WHERE c.id = ?", [comment_id, ])
   else:
@@ -164,11 +131,11 @@ def update_comment():
     return Response("Authorization Error", mimetype="text/plain", status=403)
 
   # extra error handling, maybe not needed, butttt
-  if(type(updated_comment_info) is str):
-    return dbh.exc_handler(updated_comment_info)
+  if(updated_comment_info['success'] == False):
+    return updated_comment_info['error']
 
   # no more errors can happen
-  updated_comment_json = json.dumps(updated_comment_info[0], default=str)
+  updated_comment_json = json.dumps(updated_comment_info['data'], default=str)
   return Response(updated_comment_json, mimetype="application/json", status=200)
 
 
@@ -188,36 +155,13 @@ def delete_comment():
     traceback.print_exc()
     return Response("Unknown error with an input!", mimetype="text/plain", status=400)
 
-  # ? even more overkill!
-  # try:
-  #   comment_id = dbh.run_query(
-  #       "SELECT c.id from comments c WHERE c.id = ?", [comment_id, ])[0]['id']
-  # except IndexError:
-  #   return Response("Invalid commentId", mimetype="text/plain", status=400)
-  # except:
-  #   return Response("Unknown error with commentId", mimetype="text/plain", status=400)
-
-  # if(type(comment_id) is str):
-  #   return dbh.exc_handler(comment_id)
-
-  # try:
-  #   login_token = dbh.run_query(
-  #       "SELECT s.token from `session` s WHERE s.token = ?", [login_token, ])[0]['token']
-  # except IndexError:
-  #   return Response("Invalid loginToken", mimetype="text/plain", status=400)
-  # except:
-  #   return Response("Unknown error with loginToken", mimetype="text/plain", status=400)
-
-  # if(type(list(login_token)) is str):
-  #   return dbh.exc_handler(login_token)
-
   deleted_comment = dbh.run_query(
       "DELETE c FROM comments c INNER JOIN `session` s ON c.user_id = s.user_id WHERE c.id = ? AND s.token = ?", [comment_id, login_token])
 
-  if(type(deleted_comment) is str):
-    return dbh.exc_handler(deleted_comment)
+  if(deleted_comment['success'] == False):
+    return deleted_comment['error']
 
-  if(deleted_comment == 1):
+  if(deleted_comment['data'] == 1):
     return Response(status=204)
   else:
     traceback.print_exc()

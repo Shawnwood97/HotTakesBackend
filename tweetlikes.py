@@ -29,42 +29,23 @@ def add_tweet_like():
   except:
     return Response("Authorization Error", mimetype="text/plain", status=403)
 
-  if(type(user_id) is str):
-    return dbh.exc_handler(user_id)
+  if(user_id['success'] == False):
+    return user_id['error']
 
   # SQL statement to create the like
   like_sql = "INSERT INTO take_hot_cold (take_id, user_id) VALUES (?,?)"
 
-  #  check if tweet_id isnt None or empty, then set tweet_id to the tweet id from the db
-  # still unsure if this is bad, seems like good verification, but also maybe not needed???
-  # return error if theres an index error on the tweet_id or user_id, which will in turn tell us
-  # if the loginToken was wrong since it is used to get the user_id
-  # ? removing this, seems like something we don't really need. Semantically it feels okay, but realistically, not needed?
-  # if(tweet_id != None and tweet_id != ''):
-  #   try:
-  #     tweet_id = dbh.run_query(
-  #         'SELECT t.id from takes t WHERE t.id = ?', [tweet_id, ])[0]['id']
-  #   except IndexError:
-  #     return Response("tweetId does not exist!", mimetype="text/plain", status=404)
-  #   except:
-  #     return Response("Unkown error with tweetId", mimetype="text/plain", status=404)
-
-  # if(type(tweet_id) is str):
-  #   return dbh.exc_handler(tweet_id)
 
 # tweetId has to be a number due to Value error above, this should all be good
   like_id = dbh.run_query(
       like_sql, [tweet_id, user_id])
 
-  if(type(like_id) is str):
-    return dbh.exc_handler(like_id)
-  #! does this else make more sense than the if below it??
-  # else:
-  #   return Response(status=204)
+  if(like_id['success'] == False):
+    return like_id['error']
 
   # ?Dont think there's any need for an else here, which means probably not much use for an if here.
   # ? maybe I add an else to the above helper catch that responds success?
-  if(like_id > -1):
+  if(like_id['data'] > -1):
     return Response(status=204)
 
 
@@ -74,11 +55,11 @@ def list_tweet_likes():
     #! useful for a "liked tweets tab, should make front end easier!??"
   try:
     tweet_id = request.args.get('tweetId')
-    if(tweet_id != None or tweet_id != ''):
+    if(tweet_id != None and tweet_id != ''):
       tweet_id = int(tweet_id)
       # ? this seems like an okay error check?
-    if(tweet_id <= 0):
-      return Response("Invalid tweetId", mimetype="text/plain", status=422)
+      if(tweet_id <= 0):
+        return Response("Invalid tweetId", mimetype="text/plain", status=422)
   except ValueError:
     return Response("tweetId must be a number!", mimetype="text/plain", status=422)
   except KeyError:
@@ -92,26 +73,17 @@ def list_tweet_likes():
   params = []
 
   if(tweet_id != None and tweet_id != ''):
-      # ? probably overkill
-    #   try:
-    #     tweet_id = dbh.run_query(
-    #         'SELECT t.id from takes t WHERE t.id = ?', [tweet_id, ])[0]['id']
-    #   except IndexError:
-    #     return Response("tweetId does not exist!", mimetype="text/plain", status=404)
-    #   except:
-    #     return Response("Unkown error with tweetId", mimetype="text/plain", status=404)
 
     sql += ' WHERE t.take_id = ?'
     params.append(tweet_id)
-  # Check for non mariadb exceptions
 
   liked_tweets = dbh.run_query(sql, params)
 
-  if(type(liked_tweets) is str):
-    return dbh.exc_handler(liked_tweets)
+  if(liked_tweets['success'] == False):
+    return liked_tweets['error']
 
   # cant think of any other errors to catch at this point, should all be caught elsewhere?
-  liked_tweets_json = json.dumps(liked_tweets, default=str)
+  liked_tweets_json = json.dumps(liked_tweets['data'], default=str)
   return Response(liked_tweets_json, mimetype='application/json', status=200)
 
 
@@ -131,38 +103,14 @@ def remove_tweet_like():
     traceback.print_exc()
     return Response("Unknown error with an input!", mimetype="text/plain", status=400)
 
-# using this type of error checking in lots of places, I like it, but don't know if good. mostly all uses PK's so indexing should make it fast.
-  # ? overkill?
-  # try:
-  #   tweet_id = dbh.run_query(
-  #       'SELECT t.id from takes t WHERE t.id = ?', [tweet_id, ])[0]['id']
-  # except IndexError:
-  #   return Response("tweetId does not exist!", mimetype="text/plain", status=404)
-  # except:
-  #   return Response("Unkown error with tweetId", mimetype="text/plain", status=404)
-
-  # if(type(tweet_id) is str):
-  #   return dbh.exc_handler(tweet_id)
-# ? overkill again?
-  # try:
-  #   login_token = dbh.run_query(
-  #       'SELECT s.token FROM `session` s WHERE s.token = ?', [login_token, ])[0]['token']
-  # except IndexError:
-  #   return Response("Invalid loginToken, relog and try again!", mimetype="text/plain", status=404)
-  # except:
-  #   return Response("Unkown error with loginToken!", mimetype="text/plain", status=404)
-
-  # if(type(list(login_token)) is str):
-  #   return dbh.exc_handler(login_token)
-
   # this makes me feel like I am doing so many things wrong in other places!
   removed_tweet_like = dbh.run_query(
       "DELETE th FROM take_hot_cold th INNER JOIN `session` s ON th.user_id = s.user_id WHERE th.take_id = ? AND s.token = ?", [tweet_id, login_token])
 
-  if(type(removed_tweet_like) is str):
-    return dbh.exc_handler(removed_tweet_like)
+  if(remove_tweet_like['success'] == False):
+    return remove_tweet_like['error']
 
-  if(removed_tweet_like == 1):
+  if(removed_tweet_like['data'] == 1):
     return Response(status=204)
   else:
     traceback.print_exc()
