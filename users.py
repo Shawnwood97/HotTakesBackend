@@ -156,7 +156,7 @@ def update_user():
     return result['error']
 
   updated_user_info = dbh.run_query(
-      "SELECT u.id AS userId, u.username, u.email, u.headline AS bio, u.birthdate, u.profile_pic_path AS imageUrl, u.profile_banner_path AS bannerUrl FROM users u INNER JOIN `session` s ON u.id = s.user_id WHERE s.token = ?", [login_token, ])
+      "SELECT u.id AS userId, u.username, u.email, u.headline AS bio, u.birthdate, u.website_link, u.created_at, u.profile_pic_path AS imageUrl, u.profile_banner_path AS bannerUrl FROM users u INNER JOIN `session` s ON u.id = s.user_id WHERE s.token = ?", [login_token, ])
 
   if(updated_user_info['success'] == False):
     return updated_user_info['error']

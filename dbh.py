@@ -125,4 +125,4 @@ def input_handler(data, u_inputs=[]):
       payload['error'] = Response(
           f"Error: Unknown data error with {u_input['name']}", mimetype="text/plain", status=400)
 
-    return payload
+  return payload

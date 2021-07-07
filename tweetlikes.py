@@ -23,14 +23,15 @@ def add_tweet_like():
   # Get current user_id using their login token for use in the insert statement.
   # I need the userId later, so I think this extra query is ok for validation
   user_sql = "SELECT s.user_id FROM `session` s WHERE token = ?"
+
+  result = dbh.run_query(user_sql, [login_token, ])
+  if(result['success'] == False):
+    return result['error']
   try:
-    user_id = dbh.run_query(user_sql, [login_token, ])[0]['user_id']
+    user_id = result['data'][0]['user_id']
     # general except should be fine here, if it fails we assume it's an auth error.
   except:
     return Response("Authorization Error", mimetype="text/plain", status=403)
-
-  if(user_id['success'] == False):
-    return user_id['error']
 
   # SQL statement to create the like
   like_sql = "INSERT INTO take_hot_cold (take_id, user_id) VALUES (?,?)"
@@ -104,13 +105,13 @@ def remove_tweet_like():
     return Response("Unknown error with an input!", mimetype="text/plain", status=400)
 
   # this makes me feel like I am doing so many things wrong in other places!
-  removed_tweet_like = dbh.run_query(
+  result = dbh.run_query(
       "DELETE th FROM take_hot_cold th INNER JOIN `session` s ON th.user_id = s.user_id WHERE th.take_id = ? AND s.token = ?", [tweet_id, login_token])
 
-  if(remove_tweet_like['success'] == False):
-    return remove_tweet_like['error']
+  if(result['success'] == False):
+    return result['error']
 
-  if(removed_tweet_like['data'] == 1):
+  if(result['data'] == 1):
     return Response(status=204)
   else:
     traceback.print_exc()

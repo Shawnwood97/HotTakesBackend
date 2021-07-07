@@ -53,7 +53,6 @@ def new_follow():
 
   # Get current user id using their login token for use in the insert statement.
   user_sql = "SELECT user_id FROM `session` WHERE token = ?"
-# ? needed later, so might as well?
 
   result = dbh.run_query(user_sql, [login_token, ])
   if(result['success'] == False):

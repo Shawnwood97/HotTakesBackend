@@ -22,7 +22,7 @@ def list_comments():
     return Response("Unknown error with tweetId", mimetype="text/plain", status=400)
 
   # Base for SELECT query
-  sql = "SELECT c.id AS commentId, c.take_id AS tweetId, c.user_id AS userId, u.username, c.content, c.created_at AS createdAt FROM comments c INNER JOIN users u ON c.user_id = u.id WHERE c.take_id = ?"
+  sql = "SELECT c.id AS commentId, c.take_id AS tweetId, c.user_id AS userId, u.username, u.profile_pic_path AS userImageUrl, c.content, c.created_at AS createdAt FROM comments c INNER JOIN users u ON c.user_id = u.id WHERE c.take_id = ?"
 
   comments = dbh.run_query(sql, [tweet_id, ])
 
@@ -82,12 +82,12 @@ def create_comment():
 
   if(new_comment_id != None):
     new_comment_info = dbh.run_query(
-        "SELECT c.id AS commentId, c.take_id AS tweetId, c.user_id AS userId, u.username, c.content, c.created_at AS createdAt FROM comments c INNER JOIN users u ON c.user_id = u.id WHERE c.id = ?", [new_comment_id, ])
+        "SELECT c.id AS commentId, c.take_id AS tweetId, c.user_id AS userId, u.username, u.profile_pic_path AS userImageUrl, c.content, c.created_at AS createdAt FROM comments c INNER JOIN users u ON c.user_id = u.id WHERE c.id = ?", [new_comment_id, ])
 
     if(new_comment_info['success'] == False):
       return new_comment_info['error']
 
-    new_comment_json = json.dumps(new_comment_info['data'], default=str)
+    new_comment_json = json.dumps(new_comment_info['data'][0], default=str)
     return Response(new_comment_json, mimetype="application/json", status=201)
   else:
     return Response("Error getting comment after insert!", mimetype="text/plain", status=404)

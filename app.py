@@ -11,6 +11,7 @@ import tweets
 import tweetlikes
 import comments
 import commentlikes
+import messages
 
 app = Flask(__name__)
 
@@ -166,6 +167,25 @@ def call_add_comment_like():
 @app.delete('/api/comment-likes')
 def call_remove_comment_like():
   return commentlikes.remove_comment_like()
+
+# ! --------------------------------------------------------
+# ! ------------------ /API/MESSAGES -----------------------
+# ! --------------------------------------------------------
+
+
+@app.get('/api/messages')
+def call_list_messages():
+  return messages.list_messages()
+
+
+@app.post('/api/messages')
+def call_send_message():
+  return messages.send_message()
+
+
+@app.delete('/api/messages')
+def call_delete_message():
+  return messages.delete_message()
 
 
 if(len(sys.argv) > 1):
