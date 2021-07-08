@@ -6,7 +6,7 @@ import traceback
 # ? do I need a conversations endpoint???!?!?
 
 
-def list_messages():
+def list_sent_messages():
   arg_scheme = [
       {
           'required': True,
@@ -21,7 +21,37 @@ def list_messages():
     parsed_args = parsed_args['data']
 
   #! I want usernames and profile images here as well, but we can get them per conversation rather than per message to make more efficient.
-  sql = "SELECT m.from_user_id, m.to_user_id, m.content, m.created_at FROM users u INNER JOIN `session` s ON u.id = s.user_id INNER JOIN messages m ON u.id = m.to_user_id OR u.id = m.from_user_id INNER JOIN users uu ON uu.id = m.to_user_id OR uu.id = m.from_user_id WHERE s.token = ? AND u.id != uu.id"
+  # todo make a seperate endpoints for listing sent and recieved so we can have seperate inboxes on front end and make querys nicer.
+  sql = "SELECT m.from_user_id, m.to_user_id, m.content, m.created_at FROM messages m INNER JOIN `session` s ON m.from_user_id = s.user_id WHERE s.token = ?"
+
+  result = dbh.run_query(sql, [parsed_args['loginToken'], ])
+
+  if(result['success'] == False):
+    return result['error']
+
+  if(len(result['data']) != 0):
+    messages_json = json.dumps(result['data'], default=str)
+    return Response(messages_json, mimetype='application/json', status=200)
+  else:
+    return Response("Messages not found!", mimetype="text/plain", status=404)
+
+
+def list_recieved_messages():
+  arg_scheme = [
+      {
+          'required': True,
+          'name': 'loginToken',
+          'type': str
+      }
+  ]
+  parsed_args = dbh.input_handler(request.args, arg_scheme)
+  if(parsed_args['success'] == False):
+    return parsed_args['error']
+  else:
+    parsed_args = parsed_args['data']
+
+  #! I want usernames and profile images here as well, but we can get them per conversation rather than per message to make more efficient.
+  sql = "SELECT m.from_user_id, m.to_user_id, m.content, m.created_at FROM messages m INNER JOIN `session` s ON m.to_user_id = s.user_id WHERE s.token = ?"
 
   result = dbh.run_query(sql, [parsed_args['loginToken'], ])
 
@@ -70,6 +100,7 @@ def send_message():
 
   message_sql = "INSERT INTO messages (from_user_id, to_user_id, content) VALUES (?,?,?)"
 
+  # todo append a created to this to save the select statement at the end.
   message_result = dbh.run_query(
       message_sql, [from_user_id, parsed_args['userId'], parsed_args['content']])
 
@@ -109,7 +140,7 @@ def delete_message():
     parsed_args = parsed_args['data']
 
   result = dbh.run_query(
-      "DELETE m FROM messages m INNER JOIN `session` s ON m.from_user_id = s.user_id OR m.to_user_id = s.user_id WHERE m.id = ? AND s.token = ?", [parsed_args['messageId'], parsed_args['loginToken']])
+      "DELETE m FROM messages m INNER JOIN `session` s ON m.from_user_id = s.user_id WHERE m.id = ? AND s.token = ?", [parsed_args['messageId'], parsed_args['loginToken']])
 
   if(result['success'] == False):
     return result['error']

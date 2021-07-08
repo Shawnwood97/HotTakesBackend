@@ -173,9 +173,14 @@ def call_remove_comment_like():
 # ! --------------------------------------------------------
 
 
-@app.get('/api/messages')
-def call_list_messages():
-  return messages.list_messages()
+@app.get('/api/messages/sent')
+def call_list_sent_messages():
+  return messages.list_sent_messages()
+
+
+@app.get('/api/messages/recieved')
+def call_list_recieved_messages():
+  return messages.list_recieved_messages()
 
 
 @app.post('/api/messages')
