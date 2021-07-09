@@ -7,6 +7,7 @@ import traceback
 
 
 def list_sent_messages():
+  # we need login token verification so that only the users that should be able to see the messages can see the messages
   arg_scheme = [
       {
           'required': True,
@@ -29,6 +30,7 @@ def list_sent_messages():
   if(result['success'] == False):
     return result['error']
 
+  # if len of data list is not 0, return json, otherwise no messages found.
   if(len(result['data']) != 0):
     messages_json = json.dumps(result['data'], default=str)
     return Response(messages_json, mimetype='application/json', status=200)
@@ -37,6 +39,7 @@ def list_sent_messages():
 
 
 def list_recieved_messages():
+  # identical as above, except the ON clause in the sql statement
   arg_scheme = [
       {
           'required': True,
@@ -66,6 +69,7 @@ def list_recieved_messages():
 
 
 def send_message():
+  # you must pass content, userId and loginToken to send a message
   arg_scheme = [
       {
           'required': True,
@@ -89,6 +93,7 @@ def send_message():
   else:
     parsed_args = parsed_args['data']
 
+  # statement to validate login token and get user Id.
   user_sql = "SELECT user_id FROM `session` WHERE token = ?"
 
   result = dbh.run_query(user_sql, [parsed_args['loginToken'], ])
@@ -96,8 +101,10 @@ def send_message():
   if(result['success'] == False):
     return result['error']
 
+  # set variable to be the user_id key from the above result
   from_user_id = result['data'][0]['user_id']
 
+  # insert statement for sending the message, should be pretty self explanatory.
   message_sql = "INSERT INTO messages (from_user_id, to_user_id, content) VALUES (?,?,?)"
 
   # todo append a created to this to save the select statement at the end.
@@ -121,6 +128,7 @@ def send_message():
 
 
 def delete_message():
+  # need login token and messageId to delete a message
   arg_scheme = [
       {
           'required': True,
@@ -139,6 +147,7 @@ def delete_message():
   else:
     parsed_args = parsed_args['data']
 
+  # run delete query with verification. only the sending user can delete a message.
   result = dbh.run_query(
       "DELETE m FROM messages m INNER JOIN `session` s ON m.from_user_id = s.user_id WHERE m.id = ? AND s.token = ?", [parsed_args['messageId'], parsed_args['loginToken']])
 
