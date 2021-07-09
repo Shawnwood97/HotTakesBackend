@@ -150,5 +150,3 @@ def delete_message():
   else:
     traceback.print_exc()
     return Response("Authorization Error", mimetype='text/plain', status=403)
-
-    #! I don't love the delete functionality as it stands, as the sender or reciever can delete the message and it will stop the other one from being able to see it, I'm sure thats realistically fine, I'll think on it!

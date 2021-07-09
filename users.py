@@ -4,6 +4,7 @@ import json
 import traceback
 from datetime import datetime
 import secrets
+import hashlib
 
 
 def list_users():
@@ -61,10 +62,15 @@ def create_user():
     traceback.print_exc()
     return Response("Unknown error with an input!", mimetype="text/plain", status=400)
 
+  # create salt, add it before the password, hash it, and add both to the sql query later to be added to db.
+  salt = dbh.create_salt()
+  password = salt + password
+  password = hashlib.sha512(password.encode()).hexdigest()
+
   # Query
-  sql = "INSERT INTO users (username, email, password, headline, birthdate) VALUES (?,?,?,?,?)"
+  sql = "INSERT INTO users (username, email, password, headline, birthdate, salt) VALUES (?,?,?,?,?,?)"
   # starting point for params to pass to run_query helper function
-  params = [username, email, password, bio, birthdate]
+  params = [username, email, password, bio, birthdate, salt]
 
   for item in params:
     # this is speicifically to catch "", as it gets passed the KeyError from above
@@ -97,72 +103,116 @@ def create_user():
 
 
 def update_user():
-  try:
-    # Get any inputs to be updated
-    username = request.json.get('username')
-    email = request.json.get('email')
-    bio = request.json.get('bio')
-    # Get birthdate input then set ensure the format matches the database format.
-    birthdate = request.json.get('birthdate')
-    if(birthdate != None):
-      birthdate = datetime.strptime(birthdate, "%Y-%m-%d")
-    image_url = request.json.get('imageUrl')
-    banner_url = request.json.get('bannerUrl')
-    login_token = request.json['loginToken']
-  except KeyError:
-    traceback.print_exc()
-    return Response("One or more required fields are empty!", mimetype="text/plain", status=422)
-  except:
-    traceback.print_exc()
-    return Response("Unknown error with an input!", mimetype="text/plain", status=400)
+  # inputs to be passed to helper function, we can probably move these into their own file and make them more reusable rather than creating all these lines here.
+  # see dbh => input_handler for explanation
+  arg_scheme = [
+      {
+          'required': True,
+          'name': 'loginToken',
+          'type': str
+      },
+      {
+          'required': False,
+          'name': 'username',
+          'type': str
+      },
+      {
+          'required': False,
+          'name': 'email',
+          'type': str
+      },
+      {
+          'required': False,
+          'name': 'bio',
+          'type': str
+      },
+      {
+          'required': False,
+          'name': 'birthdate',
+          'type': str
+      },
+      {
+          'required': False,
+          'name': 'imageUrl',
+          'type': str
+      },
+      {
+          'required': False,
+          'name': 'bannerUrl',
+          'type': str
+      },
+  ]
+  # setting parsed_args as the return of the input_handler function, passing request.json as out endpoint_arg, and the scheme from above as u_inputs.
+  # parsed args will be a dictionary
+  parsed_args = dbh.input_handler(request.json, arg_scheme)
+  # if the key success has a False value, rerutn the error from the error key.
+  if(parsed_args['success'] == False):
+    return parsed_args['error']
+  else:
+    # else set parsed args to the data dictionary that is within the input handler returned dictionary.
+    parsed_args = parsed_args['data']
+
+  # if birthdate exists, set it to the proper date format for the database using datetime library
+  if(parsed_args.get('birthdate') != None):
+    parsed_args['birthdate'] = datetime.strptime(
+        parsed_args['birthdate'], "%Y-%m-%d")
 
   # Base for update query
-  # sql_s = "SELECT "
   sql = "UPDATE users u INNER JOIN `session` s ON u.id = s.user_id SET"
-  # Starting point for valid params
+  # Starting point for params
   params = []
 
   # TODO I should be able to make a loop function for this.
-  if(username != None and username != ''):
+  # check each of the inputs and if they are not None or empty strings, append them to params list from above.
+  if(parsed_args.get('username') != None and parsed_args.get('username') != ''):
     sql += " u.username = ?,"
-    params.append(username)
-  if(email != None and email != ''):
+    params.append(parsed_args['username'])
+  if(parsed_args.get('email') != None and parsed_args.get('email') != ''):
     sql += " u.email = ?,"
-    params.append(email)
-  if(bio != None and bio != ''):
+    params.append(parsed_args['email'])
+  if(parsed_args.get('bio') != None and parsed_args.get('bio') != ''):
     sql += " u.headline = ?,"
-    params.append(bio)
-  if(birthdate != None and birthdate != ''):
+    params.append(parsed_args['bio'])
+  if(parsed_args.get('birthdate') != None and parsed_args.get('birthdate') != ''):
     sql += " u.birthdate = ?,"
-    params.append(birthdate)
-  if(image_url != None and image_url != ''):
+    params.append(parsed_args['birthdate'])
+  if(parsed_args.get('imageUrl') != None and parsed_args.get('imageUrl') != ''):
     sql += " u.profile_pic_path = ?,"
-    params.append(image_url)
-  if(banner_url != None and banner_url != ''):
+    params.append(parsed_args['imageUrl'])
+  if(parsed_args.get('bannerUrl') != None and parsed_args.get('bannerUrl') != ''):
     sql += " u.profile_banner_path = ?,"
-    params.append(banner_url)
+    params.append(parsed_args['bannerUrl'])
 
-  # check to see if params were passed, mainly for good error catching!
+  # check to see if any optional data was passed, if it was, remove the comma using slice, append the loginToken to the params and add the WHERE clause to
+  # the sql statement, else return no data passed response.
   if(len(params) != 0):
-    params.append(login_token)
+    params.append(parsed_args['loginToken'])
     sql = sql[:-1]
     sql += " WHERE s.token = ?"
   else:
     return Response("No data passed!", mimetype="text/plain", status=400)
 
+  # set the result of the run_query function to the result variable.
   result = dbh.run_query(sql, params)
 
+  # if the success key is False, return the error keys value which is a Response.
   if(result['success'] == False):
     return result['error']
 
-  updated_user_info = dbh.run_query(
-      "SELECT u.id AS userId, u.username, u.email, u.headline AS bio, u.birthdate, u.website_link, u.created_at, u.profile_pic_path AS imageUrl, u.profile_banner_path AS bannerUrl FROM users u INNER JOIN `session` s ON u.id = s.user_id WHERE s.token = ?", [login_token, ])
+  # if the data key is has a value of 0 or lower, return an authentication error, seems appropriate since we are returning rowcount with updates.
+  if(result['data'] <= 0):
+    return Response("Authentication Error!", mimetype="text/plain", status=403)
 
+  # Select query to get all the info after updating.
+  updated_user_info = dbh.run_query(
+      "SELECT u.id AS userId, u.username, u.email, u.headline AS bio, u.birthdate, u.website_link, u.created_at, u.profile_pic_path AS imageUrl, u.profile_banner_path AS bannerUrl FROM users u INNER JOIN `session` s ON u.id = s.user_id WHERE s.token = ?", [parsed_args['loginToken'], ])
+
+  # if the success key is False, return the error keys value which is a Response.
   if(updated_user_info['success'] == False):
     return updated_user_info['error']
 
-  # if the length of updated info does not = 1, error, else return data.
-  # UPDATEs return rowcount
+  # if the length of the data key equals 1, set user_info_json to the data key at the 0 index, which will be the dict of key value pairs returned from the loop_items function
+  # in dbh, else, error.
   if(len(updated_user_info['data']) == 1):
     user_info_json = json.dumps(updated_user_info['data'][0], default=str)
     return Response(user_info_json, mimetype="application/json", status=201)
@@ -195,4 +245,4 @@ def delete_user():
   if(result['data'] == 1):
     return Response(status=204)
   else:
-    return Response("Authorization Error!", mimetype="text/plain", status=403)
+    return Response("Authentication Error!", mimetype="text/plain", status=403)

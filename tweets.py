@@ -61,6 +61,11 @@ def create_tweet():
     content = request.json['content']
     # Get optional imageUrl
     image_url = request.json.get('imageUrl')
+
+    #! Thanks Monica 😊
+    # if content or login token are empty strings, return an error.
+    if(content == '' and login_token == ''):
+      return Response("Required fields cannot be empty strings", mimetype="text/plain", status=422)
   except KeyError:
     traceback.print_exc()
     return Response("One or more required fields are empty!", mimetype="text/plain", status=422)
@@ -68,49 +73,56 @@ def create_tweet():
     traceback.print_exc()
     return Response("Unknown error with an input!", mimetype="text/plain", status=400)
 
-  # set user_id, get errors, I need the userId anyways, so the extra try/query to be more semanitic with errors makes sense
-  #
+  # set result to the return of run_query from dbh.
   result = dbh.run_query(
       "SELECT user_id FROM `session` WHERE token = ?", [login_token, ])
 
+  # error check on the success key returned by run_query, if False return the response.
   if(result['success'] == False):
     return result['error']
 
+  # try to set the user_id var to the user id from the 0 index inside the data dictionary from result. #! confusing, I know.
   try:
     user_id = result['data'][0]['user_id']
   except:
     traceback.print_exc()
     return Response("Authorization Error!", mimetype="text/plain", status=403)
 
-  # Insert Query
+  # Base for Insert Query
   sql = "INSERT INTO takes"
+
   # starting point for params to pass to run_query helper function
   # includes content and user id becayse they are mandatory!
   params = [content, user_id]
 
-  # If imageUrl param has a vaue, insert content and and image_path, otherwise, just content.
+  # If imageUrl param has a value, insert content, user_id and image_path and append image_url to params, otherwise, just content and user_id, no append needed
+  # in else as they are mandatory and already there from default.
   if(image_url != None and image_url != ''):
     sql += " (content, user_id, image_path) VALUES (?,?,?)"
     params.append(image_url)
   else:
     sql += " (content, user_id) VALUES (?,?)"
 
+  # run the query helper function
   result = dbh.run_query(sql, params)
 
+  # error check on the success key returned by run_query, if False return the response.
   if(result['success'] == False):
     return result['error']
 
+  # if data key is greater than -1 (lastrowid), run a select statement, else return an error response.
   if(result['data'] > -1):
     new_tweet_info = dbh.run_query(
         "SELECT t.id AS tweetId, u.id AS userId, u.username, u.profile_pic_path AS userImageUrl, t.content, t.image_path AS imageUrl, t.created_at AS createdAt FROM takes t INNER JOIN users u ON t.user_id = u.id WHERE t.id = ?", [result['data'], ])
 
-# using result over and over again as a var name seems like it may be a little confusing
+  # error check on the success key returned by run_query, if False return the response.
     if(new_tweet_info['success'] == False):
       return new_tweet_info['error']
-
+  # if the data dictionary has a length of 1, create the json and return a response
+  if(len(new_tweet_info['data']) == 1):
     new_tweet_json = json.dumps(new_tweet_info['data'][0], default=str)
     return Response(new_tweet_json, mimetype="application/json", status=201)
-  # I dont think there can be an else here, since error catches at this point would be caught by the helper function, put else here anyways!
+  # otherwise, return error, if this happens, the insert happened but we were unable to get the data afterwards.
   else:
     return Response("Error getting tweet after insert!", mimetype="text/plain", status=404)
 
@@ -121,6 +133,10 @@ def update_tweet():
     login_token = request.json['loginToken']
     tweet_id = int(request.json['tweetId'])
     content = request.json['content']
+    if(tweet_id <= 0):
+      return Response("Invalid commentId", mimetype="text/plain", status=422)
+    if(login_token == '' and content == ''):
+      return Response("Required fields cannot be empty strings", mimetype="text/plain", status=422)
   except ValueError:
     traceback.print_exc()
     return Response("One or more of the inputs is invalid!", mimetype="text/plain", status=422)
@@ -161,10 +177,14 @@ def update_tweet():
 
 def delete_tweet():
   try:
+    # get required info for deleting a tweet
     login_token = request.json['loginToken']
     tweet_id = int(request.json['tweetId'])
+    # additional error checking.
     if(tweet_id <= 0):
       return Response("Invalid tweetId", mimetype="text/plain", status=422)
+    if(login_token == ''):
+      return Response("Required fields cannot be empty strings", mimetype="text/plain", status=422)
   except ValueError:
     traceback.print_exc()
     return Response("One or more of the inputs is invalid!", mimetype="text/plain", status=422)
@@ -175,14 +195,17 @@ def delete_tweet():
     traceback.print_exc()
     return Response("Unknown error with an input!", mimetype="text/plain", status=400)
 
+  # delete query, inner joined on session, validated with login token.
   result = dbh.run_query(
       "DELETE t FROM takes t INNER JOIN `session` s ON t.user_id = s.user_id WHERE t.id = ? AND s.token = ?", [tweet_id, login_token])
 
   if(result['success'] == False):
     return result['error']
 
+  # if result returned 1 for rowcount, return status 204 (no content)
   if(result['data'] == 1):
     return Response(status=204)
+  # else auth error return.
   else:
     traceback.print_exc()
     return Response("Authorization Error!", mimetype='text/plain', status=403)

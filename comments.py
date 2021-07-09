@@ -42,6 +42,8 @@ def create_comment():
     content = request.json['content']
     if(tweet_id <= 0):
       return Response("Invalid tweetId", mimetype="text/plain", status=422)
+    if(login_token == '' and content == ''):
+      return Response("Required fields cannot be empty strings", mimetype="text/plain", status=422)
   except ValueError:
     traceback.print_exc()
     return Response("Error: One or more of the inputs is invalid!", mimetype="text/plain", status=422)

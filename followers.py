@@ -5,10 +5,10 @@ import traceback
 
 
 def list_followers():
-    # set user_id using args because its a get request
+    # set user_id using request.args because its a get request
   try:
     user_id = int(request.args['userId'])
-    # ? this seems like an okay error check?
+    # a user id cannot be 0 or less, so error if so.
     if(user_id <= 0):
       return Response("Invalid userId", mimetype="text/plain", status=422)
   except ValueError:
@@ -27,7 +27,9 @@ def list_followers():
 
   if(result['success'] == False):
     return result['error']
-
-  # I think != 0 works best here, since == 1 would only work in the case of 1 follower, I suppose > 0 would work as well.
-  followers_json = json.dumps(result['data'], default=str)
-  return Response(followers_json, mimetype='application/json', status=200)
+    # our standard error checking to ensure our select returned data.
+  if(len(result['data'] == 1)):
+    followers_json = json.dumps(result['data'], default=str)
+    return Response(followers_json, mimetype='application/json', status=200)
+  else:
+    return Response("Error getting followers.", mimetype="text/plain", status=404)
