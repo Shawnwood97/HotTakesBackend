@@ -234,6 +234,15 @@ def delete_user():
     traceback.print_exc()
     return Response("Error: Unknown error with an input!", mimetype="text/plain", status=400)
 
+  # set identity to the username key returned from run_query in order to pass it to the get_salt function
+  identity = dbh.run_query("SELECT u.username FROM users u INNER JOIN `session` s ON u.id = s.user_id WHERE s.token = ?", [
+                           token, ])['data'][0]['username']
+
+  # get salt from DB, add it before password and hash it
+  salt = dbh.get_salt(identity)
+  password = salt + password
+  password = hashlib.sha512(password.encode()).hexdigest()
+
   # Inner join seemes apropriate here to validate info rather than using mutiple queries to compare.
   result = dbh.run_query(
       "DELETE u FROM users u INNER JOIN `session` s ON u.id = s.user_id WHERE u.password = ? AND s.token = ?", [password, token])
