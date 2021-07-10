@@ -9,6 +9,7 @@ import tweetlikes
 import comments
 import commentlikes
 import messages
+import trends
 
 app = Flask(__name__)
 
@@ -188,6 +189,15 @@ def call_send_message():
 @app.delete('/api/messages')
 def call_delete_message():
   return messages.delete_message()
+
+# ? --------------------------------------------------------
+# ? -------------------- /API/TRENDS ---------------------
+# ? --------------------------------------------------------
+
+
+@app.get('/api/trends')
+def call_list_trends():
+  return trends.list_trends()
 
 
 if(len(sys.argv) > 1):

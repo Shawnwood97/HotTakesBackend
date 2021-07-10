@@ -103,12 +103,18 @@ def create_tweet():
   else:
     sql += " (content, user_id) VALUES (?,?)"
 
-  # run the query helper function
+  # run the query helper function to insert the take
   result = dbh.run_query(sql, params)
 
   # error check on the success key returned by run_query, if False return the response.
   if(result['success'] == False):
     return result['error']
+
+  # after insertion of tweet was successful, parse content for hashtags.
+  # here we pass the user_id, tweet_id, and content, in that order.
+  # all errors should be caught in helper function.
+  # tweet_id is so we could create a link back to the tweets where each hastag was userd, user_id is so we can attribute the author.
+  dbh.parse_insert_hashtags(user_id, result['data'], content)
 
   # if data key is greater than -1 (lastrowid), run a select statement, else return an error response.
   if(result['data'] > -1):

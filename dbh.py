@@ -4,6 +4,7 @@ import traceback
 from flask import Response
 import string
 import random
+import re
 
 
 def loop_items(cursor, rows):
@@ -148,7 +149,7 @@ def create_salt():
   salt = ''.join(random.choice(letters_and_digits) for i in range(10))
   return salt
 
-# function that takes user id of the user and returns their salt from the DB for adding to the password before hashing.
+# function that takes username or email of the user as their "identity" and returns their salt from the DB for adding to the password before hashing.
 
 
 def get_salt(identity):
@@ -158,4 +159,26 @@ def get_salt(identity):
   if(len(user['data']) == 1):
     return user['data'][0]['salt']
   else:
-    return ''
+    return Response("Authorization Error!", mimetype="text/plain", status=403)
+
+  # creating a helper function so I could later add it to comments if I wanted to.
+
+
+def parse_insert_hashtags(user_id, tweet_id, content):
+
+  # user findall and regex "#(\w+)" to find all words following a hashtag in the passed content argument, and puts them in a list.
+  # removes the hashtag from the front and just stores the word.
+  tag_list = re.findall("#(\w+)", content)
+
+  # if tag_list has information, insert each hashtag into the hashtags table.
+  # I can't think of any way this could error that's not caught somewhere else.
+  if(len(tag_list) > 0):
+    # here we convert the list to a dictionary setting the list items as the keys, using fromkeys, which will auto remove duplicates
+    # since dictionry keys are unique, then convert back to a list.
+    tag_list = list(dict.fromkeys(tag_list))
+    for tag in tag_list:
+      result = run_query("INSERT INTO hashtags (take_id, user_id, hashtag) VALUES (?,?,?)", [
+          tweet_id, user_id, tag])
+
+      if(result['success'] == False):
+        return result['error']
