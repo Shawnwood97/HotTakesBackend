@@ -171,6 +171,12 @@ def update_tweet():
   if(user_info['success'] == False):
     return user_info['error']
 
+  deleted_tags = dbh.run_query(
+      "DELETE h FROM hashtags h INNER JOIN `session` s ON h.user_id = s.user_id WHERE h.take_id = ? AND s.token = ?", [tweet_id, login_token])
+
+  if(deleted_tags['success'] == False):
+    return deleted_tags['error']
+
   # after update success, parse new content for hashtags.
   dbh.parse_insert_hashtags(user_info['data'][0]['user_id'], tweet_id, content)
 
