@@ -27,9 +27,6 @@ def list_followers():
 
   if(result['success'] == False):
     return result['error']
-    # our standard error checking to ensure our select returned data.
-  # if(len(result['data']) != 0 and result['data'] == []):
+
   followers_json = json.dumps(result['data'], default=str)
   return Response(followers_json, mimetype='application/json', status=200)
-  # else:
-  #   return Response("Error getting followers.", mimetype="text/plain", status=404)
