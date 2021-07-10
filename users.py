@@ -199,10 +199,6 @@ def update_user():
   if(result['success'] == False):
     return result['error']
 
-  # if the data key is has a value of 0 or lower, return an authentication error, seems appropriate since we are returning rowcount with updates.
-  if(result['data'] <= 0):
-    return Response("Authentication Error!", mimetype="text/plain", status=403)
-
   # Select query to get all the info after updating.
   updated_user_info = dbh.run_query(
       "SELECT u.id AS userId, u.username, u.email, u.headline AS bio, u.birthdate, u.website_link, u.created_at, u.profile_pic_path AS imageUrl, u.profile_banner_path AS bannerUrl FROM users u INNER JOIN `session` s ON u.id = s.user_id WHERE s.token = ?", [parsed_args['loginToken'], ])
@@ -236,12 +232,18 @@ def delete_user():
 
   # set identity to the username key returned from run_query in order to pass it to the get_salt function
   identity = dbh.run_query("SELECT u.username FROM users u INNER JOIN `session` s ON u.id = s.user_id WHERE s.token = ?", [
-                           token, ])['data'][0]['username']
+      token, ])
 
-  # get salt from DB, add it before password and hash it
-  salt = dbh.get_salt(identity)
-  password = salt + password
-  password = hashlib.sha512(password.encode()).hexdigest()
+  if(identity['success'] == False):
+    return identity['error']
+
+  # get salt from DB, add it before password and hash it. only if data keys list has a length.
+  if(len(identity['data']) == 1):
+    salt = dbh.get_salt(identity['data'][0]['username'])
+    password = salt + password
+    password = hashlib.sha512(password.encode()).hexdigest()
+  else:
+    return Response("Authorization Error", mimetype="text/plain", status=403)
 
   # Inner join seemes apropriate here to validate info rather than using mutiple queries to compare.
   result = dbh.run_query(

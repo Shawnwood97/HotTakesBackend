@@ -163,11 +163,22 @@ def update_tweet():
   if(result['success'] == False):
     return result['error']
 
+  # we need user_id for parsing hashtags
+  user_info = dbh.run_query(
+      "SELECT user_id FROM `session` WHERE token = ?", [login_token, ])
+
+  # error check on the success key returned by run_query, if False return the response.
+  if(user_info['success'] == False):
+    return user_info['error']
+
+  # after update success, parse new content for hashtags.
+  dbh.parse_insert_hashtags(user_info['data'][0]['user_id'], tweet_id, content)
+
   # only happens if update was successful.
   # on update use == 1 instead of != 0
   if(result['data'] == 1):
     updated_tweet_info = dbh.run_query(
-        "SELECT t.id AS tweetId, u.id AS userId, u.username, u.profile_pic_path AS userImageUrl, t.content, t.image_path AS imageUrl, t.created_at AS createdAt FROM takes t INNER JOIN users u ON t.user_id = u.id WHERE t.id = ?", [result['data'], ])
+        "SELECT t.id AS tweetId, u.id AS userId, u.username, u.profile_pic_path AS userImageUrl, t.content, t.image_path AS imageUrl, t.created_at AS createdAt FROM takes t INNER JOIN users u ON t.user_id = u.id WHERE t.id = ?", [tweet_id, ])
   else:
     # this seems better?
     traceback.print_exc()

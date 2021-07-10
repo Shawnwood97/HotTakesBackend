@@ -177,6 +177,7 @@ def parse_insert_hashtags(user_id, tweet_id, content):
     # since dictionry keys are unique, then convert back to a list.
     tag_list = list(dict.fromkeys(tag_list))
     for tag in tag_list:
+
       result = run_query("INSERT INTO hashtags (take_id, user_id, hashtag) VALUES (?,?,?)", [
           tweet_id, user_id, tag])
 
